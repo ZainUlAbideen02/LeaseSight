@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeaseSight — AI-Powered Semantic Retrieval and Risk Analysis for Commercial Leases</title>
+  <meta name="description" content="Academic engineering presentation for LeaseSight: a hybrid RAG pipeline for commercial lease analysis using semantic retrieval and multi-agent AI." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;900&display=swap" rel="stylesheet" />
+  <style>
+    /* ─── RESET & BASE ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black: #000000;
+      --white: #FFFFFF;
+      --slate: #333333;
+      --mid:   #555555;
+      --light: #888888;
+      --rule:  #000000;
+      --accent-line: 1px solid #000000;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #1a1a1a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+      min-height: 100vh;
+      gap: 0;
+    }
+
+    /* ─── NAVIGATION ────────────────────────────────────────────────────── */
+    .nav-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: rgba(10,10,10,0.95);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 32px;
+      height: 52px;
+      z-index: 1000;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    .nav-brand {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-btn {
+      background: none;
+      border: 1px solid #333;
+      color: #ccc;
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 6px 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover { border-color: #fff; color: #fff; }
+    .slide-counter {
+      font-size: 11px;
+      font-weight: 500;
+      color: #666;
+      letter-spacing: 0.1em;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    /* ─── SLIDE SHELL ───────────────────────────────────────────────────── */
+    .slide-wrapper {
+      margin-top: 52px;
+      width: 100%;
+      max-width: 1200px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    /* Each slide is 16:9 (1200 × 675) */
+    .slide {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--white);
+      position: relative;
+      overflow: hidden;
+      scroll-margin-top: 72px;
+    }
+
+    /* dark-mode slides */
+    .slide.dark {
+      background: var(--black);
+    }
+
+    /* ─── MICRO-HEADER (top-left section label) ─────────────────────────── */
+    .section-label {
+      position: absolute;
+      top: 5.5%;
+      left: 6%;
+      font-size: clamp(7px, 0.85vw, 10px);
+      font-weight: 500;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--light);
+    }
+    .slide.dark .section-label { color: #444; }
+
+    /* ─── SLIDE DIVIDER LINES ───────────────────────────────────────────── */
+    .vline {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1px;
+      background: var(--black);
+    }
+    .hline {
+      position: absolute;
+      left: 0; right: 0;
+      height: 1px;
+      background: var(--black);
+    }
+    .slide.dark .vline { background: #222; }
+    .slide.dark .hline { background: #222; }
+    .slide.dark .vline.white-line,
+    .slide.dark .hline.white-line { background: #333; }
+
+    /* ─── TYPOGRAPHY ────────────────────────────────────────────────────── */
+    .heading {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--black);
+      line-height: 1.05;
+    }
+    .heading-sm  { font-size: clamp(9px,  1.1vw, 13px); }
+    .heading-md  { font-size: clamp(13px, 1.7vw, 20px); }
+    .heading-lg  { font-size: clamp(18px, 2.8vw, 34px); }
+    .heading-xl  { font-size: clamp(26px, 4.5vw, 54px); }
+    .heading-xxl { font-size: clamp(34px, 6vw,  72px); }
+
+    .body-text {
+      font-weight: 400;
+      color: var(--slate);
+      line-height: 1.85;
+      letter-spacing: 0.025em;
+      font-size: clamp(8px, 1vw, 12px);
+    }
+    .body-text-sm {
+      font-weight: 400;
+      color: var(--mid);
+      line-height: 1.8;
+      letter-spacing: 0.02em;
+      font-size: clamp(7px, 0.85vw, 10px);
+    }
+    .caption-text {
+      font-size: clamp(6px, 0.72vw, 8.5px);
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: var(--light);
+      text-transform: uppercase;
+    }
+    .dark .heading { color: var(--white); }
+    .dark .body-text { color: #aaa; }
+    .dark .caption-text { color: #555; }
+
+    /* ─── STAMP TAGS ────────────────────────────────────────────────────── */
+    .stamps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .stamp {
+      border: 1px solid #000;
+      padding: 3px 10px;
+      font-size: clamp(6px, 0.72vw, 8.5px);
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--black);
+      white-space: nowrap;
+    }
+
+    /* ─── METRIC BOXES ──────────────────────────────────────────────────── */
+    .metric-row {
+      display: flex;
+      gap: 0;
+    }
+    .metric-cell {
+      flex: 1;
+      padding: 12px 14px;
+      border-right: 1px solid #000;
+    }
+    .metric-cell:last-child { border-right: none; }
+    .metric-num {
+      font-size: clamp(18px, 2.8vw, 34px);
+      font-weight: 900;
+      color: var(--black);
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .metric-label {
+      font-size: clamp(6px, 0.75vw, 9px);
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--light);
+      margin-top: 4px;
+    }
+
+    /* ─── PROGRESS BARS ─────────────────────────────────────────────────── */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .bar-label {
+      font-size: clamp(7px, 0.85vw, 10px);
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--slate);
+      width: 28%;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 1px;
+      background: #ddd;
+      position: relative;
+    }
+    .bar-fill {
+      position: absolute;
+      left: 0; top: -1px;
+      height: 3px;
+      background: var(--black);
+    }
+    .bar-dot {
+      position: absolute;
+      top: -4px;
+      width: 9px;
+      height: 9px;
+      background: var(--black);
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+    .bar-val {
+      font-size: clamp(8px, 0.9vw, 11px);
+      font-weight: 700;
+      color: var(--black);
+      width: 38px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ─── AGENT COLUMN NUMBERS ──────────────────────────────────────────── */
+    .agent-num {
+      font-size: clamp(36px, 5.5vw, 68px);
+      font-weight: 900;
+      color: #ebebeb;
+      line-height: 1;
+      margin-bottom: 6px;
+      user-select: none;
+    }
+
+    /* ─── DARK SLIDE ARCHITECTURE NODES ────────────────────────────────── */
+    .arch-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ─── TIMELINE ───────────────────────────────────────────────────────── */
+    .timeline {
+      position: absolute;
+      left: 50%;
+      top: 22%;
+      bottom: 12%;
+      width: 1px;
+      background: var(--black);
+      transform: translateX(-50%);
+    }
+    .timeline-node {
+      position: absolute;
+      left: 50%;
+      display: flex;
+      align-items: flex-start;
+      transform: translateX(-50%);
+    }
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--black);
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    /* ─── FORMULA ────────────────────────────────────────────────────────── */
+    .formula {
+      font-family: 'Inter', monospace;
+      font-size: clamp(13px, 1.8vw, 22px);
+      font-weight: 700;
+      color: var(--black);
+      letter-spacing: 0.02em;
+      border-bottom: 2px solid var(--black);
+      border-top: 2px solid var(--black);
+      padding: 10px 0;
+      text-align: center;
+    }
+
+    /* ─── CHAT BLOCKS ───────────────────────────────────────────────────── */
+    .chat-block {
+      border-left: 2px solid var(--black);
+      padding: 8px 14px;
+      margin-bottom: 10px;
+    }
+    .chat-block.response { border-left-color: var(--slate); }
+    .chat-speaker {
+      font-size: clamp(6px, 0.72vw, 8.5px);
+      font-weight: 900;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--black);
+      margin-bottom: 4px;
+    }
+    .chat-text {
+      font-size: clamp(8px, 0.95vw, 11.5px);
+      font-weight: 400;
+      color: var(--slate);
+      line-height: 1.75;
+    }
+    .evidence-box {
+      border: 1px solid var(--black);
+      background: #f9f9f9;
+      padding: 8px 12px;
+      margin-top: 10px;
+    }
+
+    /* ─── FOOTER STRIP ───────────────────────────────────────────────────── */
+    .slide-footer {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 8%;
+      border-top: 1px solid #000;
+      display: flex;
+      align-items: center;
+      padding: 0 6%;
+      justify-content: space-between;
+    }
+    .slide.dark .slide-footer { border-top-color: #222; }
+
+    /* ─── SLIDE SEPARATORS (for scrollable layout) ──────────────────────── */
+    .slide + .slide { margin-top: 24px; }
+
+    /* ─── HIGHLIGHT BLOCK ────────────────────────────────────────────────── */
+    .highlight-block {
+      border: 1.5px solid var(--black);
+      padding: 10px 16px;
+    }
+
+    /* ─── TABLE ──────────────────────────────────────────────────────────── */
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table tr { border-bottom: 1px solid #ddd; }
+    .data-table tr:last-child { border-bottom: none; }
+    .data-table td {
+      padding: 7px 0;
+      font-size: clamp(7px, 0.83vw, 10px);
+      color: var(--slate);
+      letter-spacing: 0.02em;
+      vertical-align: top;
+    }
+    .data-table td:first-child { font-weight: 700; color: var(--black); padding-right: 12px; }
+    .data-table td.conf {
+      font-weight: 700;
+      color: var(--black);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    /* ─── ROSTER LIST ────────────────────────────────────────────────────── */
+    .roster-item {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .roster-name {
+      font-size: clamp(9px, 1.1vw, 13px);
+      font-weight: 700;
+      color: var(--black);
+      letter-spacing: 0.02em;
+    }
+    .roster-role {
+      font-size: clamp(7px, 0.8vw, 9.5px);
+      font-weight: 400;
+      color: var(--light);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ─── DARK SLIDE TEXT ────────────────────────────────────────────────── */
+    .dark-heading {
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--white);
+      line-height: 1.05;
+    }
+    .dark-body {
+      font-weight: 400;
+      color: #777;
+      line-height: 1.8;
+      letter-spacing: 0.02em;
+      font-size: clamp(7px, 0.85vw, 10px);
+    }
+    .dark-caption {
+      font-size: clamp(6px, 0.7vw, 8px);
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: #444;
+      text-transform: uppercase;
+    }
+    .dark-stamp {
+      border: 1px solid #333;
+      padding: 3px 10px;
+      font-size: clamp(6px, 0.72vw, 8.5px);
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #555;
+    }
+    .dark-section-label {
+      position: absolute;
+      top: 5.5%;
+      left: 6%;
+      font-size: clamp(7px, 0.85vw, 10px);
+      font-weight: 500;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #333;
+    }
+
+    /* OVERSIZED BG NUMBER */
+    .bg-number {
+      position: absolute;
+      font-size: clamp(60px, 12vw, 148px);
+      font-weight: 900;
+      color: #f2f2f2;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      user-select: none;
+      pointer-events: none;
+    }
+
+    /* ─── KEYBOARD NAVIGATION ────────────────────────────────────────────── */
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!--  NAV BAR -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<nav class="nav-bar" role="navigation" aria-label="Slide navigation">
+  <span class="nav-brand">LeaseSight &mdash; Presentation</span>
+  <div class="nav-controls">
+    <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">&#8592; Prev</button>
+    <span class="slide-counter" id="slideCounter">1 / 12</span>
+    <button class="nav-btn" id="nextBtn" onclick="navigate(1)">Next &#8594;</button>
+  </div>
+</nav>
+
+<div class="slide-wrapper" id="deck">
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 01 — INITIALIZATION (Title) -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-01" aria-label="Slide 1: Title">
+
+  <span class="section-label">01. INITIALIZATION</span>
+
+  <!-- Vertical accent line -->
+  <div class="vline" style="left:42%"></div>
+
+  <!-- LEFT — Branding -->
+  <div style="position:absolute; left:6%; top:18%; width:33%;">
+    <div class="heading heading-xxl" style="margin-bottom:4%;">LeaseSight</div>
+    <div style="width:100%; height:1px; background:#000; margin-bottom:5%;"></div>
+    <div class="body-text" style="font-size:clamp(9px,1.1vw,13px); font-weight:300; line-height:1.6; color:#555;">
+      AI-Powered Semantic Retrieval<br>and Risk Analysis for<br>Commercial Leases
+    </div>
+    <div class="stamps" style="margin-top:8%;">
+      <span class="stamp">Information Retrieval</span>
+      <span class="stamp">Term Project</span>
+      <span class="stamp">Semantic Engine</span>
+      <span class="stamp">v.1.0.4</span>
+    </div>
+  </div>
+
+  <!-- RIGHT — Roster -->
+  <div style="position:absolute; left:47%; top:22%; width:46%;">
+    <div class="caption-text" style="margin-bottom:6%;">Project Roster</div>
+
+    <div class="roster-item">
+      <span class="roster-name">Muhammad Zain ul Abideen</span>
+      <span class="roster-role">Lead Developer</span>
+    </div>
+    <div class="roster-item">
+      <span class="roster-name">Fatima Tariq</span>
+      <span class="roster-role">Dataset &amp; Preprocessing</span>
+    </div>
+    <div class="roster-item">
+      <span class="roster-name">Ali Hassan</span>
+      <span class="roster-role">Frontend &amp; UI</span>
+    </div>
+    <div class="roster-item">
+      <span class="roster-name">Bilal Ahmed</span>
+      <span class="roster-role">Evaluator</span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="slide-footer">
+    <span class="caption-text">Air University Islamabad &mdash; Dept. of Creative Technologies</span>
+    <span class="caption-text">2026</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 02 — PROBLEM LANDSCAPE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-02" aria-label="Slide 2: Problem Landscape">
+
+  <span class="section-label">02. PROBLEM LANDSCAPE</span>
+
+  <!-- Main heading -->
+  <div style="position:absolute; left:6%; top:16%; width:88%;">
+    <div class="heading heading-lg">The High Cost of The Fine Print</div>
+  </div>
+
+  <!-- Divider line -->
+  <div class="hline" style="top:30%"></div>
+  <div class="vline" style="left:50%; top:30%; bottom:12%;"></div>
+
+  <!-- LEFT — Problem -->
+  <div style="position:absolute; left:6%; top:33%; width:40%; bottom:14%;">
+    <div class="caption-text" style="margin-bottom:5%;">The Problem</div>
+    <ul style="list-style:none; padding:0;">
+      <li class="body-text" style="margin-bottom:4%; padding-left:0;">
+        Commercial leases span <strong style="color:#000">20–80 dense pages</strong>. Manual review is slow, error-prone, and leads to costly oversights.
+      </li>
+      <li class="body-text" style="margin-bottom:4%;">
+        Missing <strong style="color:#000">180-day non-renewal</strong> notice windows forces predatory auto-renewals.
+      </li>
+      <li class="body-text" style="margin-bottom:4%;">
+        Overlooking strict <strong style="color:#000">subletting prohibitions</strong> triggers default legal fees.
+      </li>
+      <li class="body-text">
+        Ignoring complex HVAC upkeep structures shifts severe <strong style="color:#000">maintenance liabilities</strong> onto tenants.
+      </li>
+    </ul>
+  </div>
+
+  <!-- RIGHT — Solution -->
+  <div style="position:absolute; left:53%; top:33%; width:40%; bottom:14%;">
+    <div class="caption-text" style="margin-bottom:5%;">The Solution</div>
+    <ul style="list-style:none; padding:0;">
+      <li class="body-text" style="margin-bottom:4%;">
+        LeaseSight introduces a <strong style="color:#000">hybrid RAG pipeline</strong> that answers natural language questions with pixel-precise evidence grounding.
+      </li>
+      <li class="body-text" style="margin-bottom:4%;">
+        Instant <strong style="color:#000">plain-English query</strong> resolution with source-anchored highlights.
+      </li>
+      <li class="body-text" style="margin-bottom:4%;">
+        <strong style="color:#000">768-dimensional</strong> dense vector proximity ranking via all-mpnet-base-v2.
+      </li>
+      <li class="body-text">
+        <strong style="color:#000">Multi-agent</strong> risk audit automation (Miner → Judge → Clerk).
+      </li>
+    </ul>
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">02 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 03 — INGESTION STRATEGY -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-03" aria-label="Slide 3: Ingestion Strategy">
+
+  <span class="section-label">03. INGESTION STRATEGY</span>
+
+  <div class="vline" style="left:50%"></div>
+
+  <!-- LEFT — Abstract geometric block -->
+  <div style="position:absolute; left:6%; top:18%; width:36%;">
+    <div class="heading heading-lg" style="margin-bottom:5%;">The Fuel:<br>CUAD Dataset</div>
+    <div class="body-text" style="margin-bottom:5%;">
+      The Contract Understanding Atticus Dataset — a comprehensive benchmark for legal clause extraction across commercial contract types.
+    </div>
+    <div style="width:60%; height:1px; background:#000; margin-bottom:3%;"></div>
+    <div class="body-text-sm">Harvard Law School / The Atticus Project</div>
+  </div>
+
+  <!-- RIGHT — Data Points -->
+  <div style="position:absolute; left:54%; top:18%; width:39%;">
+
+    <div class="caption-text" style="margin-bottom:5%;">Dataset Specifications</div>
+
+    <!-- Metric grid -->
+    <div style="border-top:1px solid #000; border-bottom:1px solid #000; padding:4% 0; margin-bottom:5%;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4%;">
+        <div>
+          <div class="metric-num">500+</div>
+          <div class="metric-label">Commercial Contracts</div>
+        </div>
+        <div style="width:1px; background:#ddd;"></div>
+        <div>
+          <div class="metric-num">41</div>
+          <div class="metric-label">Clause Categories</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="body-text" style="margin-bottom:3%;">
+      <strong style="color:#000">Contract Types:</strong> Leases, NDAs, and Service Agreements across diverse commercial sectors.
+    </div>
+    <div class="body-text">
+      <strong style="color:#000">Annotation:</strong> Expert-verified human annotations covering legally significant clause extraction targets.
+    </div>
+  </div>
+
+  <!-- Background accent number -->
+  <div class="bg-number" style="right:-2%; bottom:10%; font-size:clamp(80px,18vw,210px); color:#f5f5f5;">500</div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">03 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 04 — MATHEMATICAL RANKING -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-04" aria-label="Slide 4: Dense Vector Retrieval">
+
+  <span class="section-label">04. MATHEMATICAL RANKING</span>
+
+  <!-- Centered layout -->
+  <div style="position:absolute; left:10%; right:10%; top:16%;">
+    <div class="heading heading-lg" style="margin-bottom:2%;">Dense Vector Retrieval</div>
+    <div class="body-text" style="max-width:70%; margin-bottom:5%; color:#555;">
+      Mapping contracts into a shared semantic space via a locally-deployed PyTorch <strong style="color:#000">all-mpnet-base-v2</strong> sentence-transformer model. Geometric proximity defines retrieval relevance.
+    </div>
+  </div>
+
+  <!-- Formula block -->
+  <div style="position:absolute; left:10%; right:10%; top:42%;">
+    <div class="formula">
+      Cosine Similarity &nbsp;=&nbsp; (Q &middot; D) &nbsp;/&nbsp; (&#8214;Q&#8214; &times; &#8214;D&#8214;)
+    </div>
+  </div>
+
+  <!-- Metrics row -->
+  <div style="position:absolute; left:10%; right:10%; top:62%; border:1px solid #000;">
+    <div class="metric-row" style="border-bottom:none;">
+      <div class="metric-cell">
+        <div class="metric-num">768</div>
+        <div class="metric-label">Float Vector Dimensions</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-num">384</div>
+        <div class="metric-label">Token Ceiling (Hard Truncation)</div>
+      </div>
+      <div class="metric-cell">
+        <div class="metric-num" style="font-size:clamp(14px,2vw,24px);">100%</div>
+        <div class="metric-label">Local Deployment &mdash; Zero API Cost</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">04 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 05 — CORE ARCHITECTURE [DARK MODE] -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide dark" id="slide-05" aria-label="Slide 5: System Architecture">
+
+  <span class="dark-section-label">05. CORE ARCHITECTURE</span>
+
+  <!-- SVG Network topology -->
+  <svg class="arch-svg" viewBox="0 0 1200 675" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <!-- Connector lines -->
+    <g stroke="#222" stroke-width="1" fill="none">
+      <line x1="160" y1="338" x2="280" y2="280"/>
+      <line x1="160" y1="338" x2="280" y2="395"/>
+      <line x1="310" y1="268" x2="440" y2="238"/>
+      <line x1="310" y1="408" x2="440" y2="440"/>
+      <line x1="480" y1="228" x2="620" y2="260"/>
+      <line x1="480" y1="452" x2="620" y2="420"/>
+      <line x1="660" y1="270" x2="760" y2="300"/>
+      <line x1="660" y1="430" x2="760" y2="400"/>
+      <line x1="790" y1="310" x2="920" y2="338"/>
+      <line x1="790" y1="390" x2="920" y2="338"/>
+      <line x1="950" y1="338" x2="1080" y2="280"/>
+      <line x1="950" y1="338" x2="1080" y2="395"/>
+    </g>
+    <!-- Node dots -->
+    <g fill="#333">
+      <circle cx="140" cy="338" r="4"/>
+      <circle cx="295" cy="268" r="3"/>
+      <circle cx="295" cy="408" r="3"/>
+      <circle cx="460" cy="228" r="3"/>
+      <circle cx="460" cy="452" r="3"/>
+      <circle cx="640" cy="265" r="3"/>
+      <circle cx="640" cy="435" r="3"/>
+      <circle cx="775" cy="300" r="3"/>
+      <circle cx="775" cy="400" r="3"/>
+      <circle cx="935" cy="338" r="4"/>
+      <circle cx="1090" cy="270" r="3"/>
+      <circle cx="1090" cy="400" r="3"/>
+    </g>
+  </svg>
+
+  <!-- Centered title -->
+  <div style="position:absolute; left:6%; top:16%;">
+    <div class="dark-heading" style="font-size:clamp(20px,3.2vw,38px); margin-bottom:2%;">System Workflow</div>
+    <div class="dark-caption">End-to-end pipeline topology</div>
+  </div>
+
+  <!-- Flow nodes — centered horizontal band -->
+  <div style="position:absolute; left:4%; right:4%; top:42%; display:flex; align-items:center; justify-content:space-between; gap:4px;">
+
+    <!-- Node style helper via inline -->
+    <div style="text-align:center; flex:1;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">PDF<br>Ingress</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.3;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">Azure Document<br>Intelligence</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.3;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">PyTorch<br>Embeddings</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.3;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">Pinecone<br>Multi-Tenancy</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.3;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">ANN Cosine<br>Match</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.5;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">Groq Llama-3.3<br>70B Audit</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+    <div style="color:#333; font-size:12px;">&#8594;</div>
+    <div style="text-align:center; flex:1.2;">
+      <div style="font-size:clamp(6px,0.75vw,9px); font-weight:700; letter-spacing:0.2em; color:#555; text-transform:uppercase; margin-bottom:5px;">Next.js UI<br>Canvas</div>
+      <div style="width:1px; height:18px; background:#222; margin:0 auto;"></div>
+    </div>
+
+  </div>
+
+  <!-- Footnote -->
+  <div style="position:absolute; left:6%; bottom:14%; right:6%;">
+    <div style="height:1px; background:#1a1a1a; margin-bottom:10px;"></div>
+    <div class="dark-caption">
+      Azure JSON spatial map cached locally &mdash; bypass repeat cloud queries on identical documents. SQLite stores audit history. Pinecone namespaces enforce multi-tenant isolation.
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div style="position:absolute; bottom:0; left:0; right:0; height:8%; border-top:1px solid #111; display:flex; align-items:center; padding:0 6%; justify-content:space-between;">
+    <span class="dark-caption">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="dark-caption">05 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 06 — INTELLIGENCE LAYER -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-06" aria-label="Slide 6: Intelligence Layer">
+
+  <span class="section-label">06. INTELLIGENCE LAYER</span>
+
+  <!-- Title -->
+  <div style="position:absolute; left:6%; top:16%; width:60%;">
+    <div class="heading heading-md">The Single-Pass Audit Engine</div>
+  </div>
+
+  <div class="hline" style="top:28%;"></div>
+
+  <!-- Three columns -->
+  <div style="position:absolute; left:0; right:0; top:30%; bottom:12%; display:flex;">
+
+    <!-- COL 1 -->
+    <div style="flex:1; padding:3% 4% 3% 6%; border-right:1px solid #000;">
+      <div class="agent-num">01</div>
+      <div class="heading heading-sm" style="margin-bottom:4%;">The Miner</div>
+      <div class="body-text">
+        Extracts a <strong style="color:#000">20-point compliance matrix</strong> covering Parties, Dates, Rent, Deposits, Late Fees, Governing Law, and Termination clauses. Each finding is anchored with a verbatim <code style="font-size:0.9em; background:#f5f5f5; padding:1px 5px;">evidence_quote</code> string directly from the contract text.
+      </div>
+    </div>
+
+    <!-- COL 2 -->
+    <div style="flex:1; padding:3% 4%; border-right:1px solid #000;">
+      <div class="agent-num">02</div>
+      <div class="heading heading-sm" style="margin-bottom:4%;">The Judge</div>
+      <div class="body-text">
+        Benchmarks extracted terms against statutory regulations — specifically <strong style="color:#000">Section 74 of Pakistan's Contract Act 1872</strong> (liquidated damages and penalty provisions). Assigns a <strong style="color:#000">1–10 risk index</strong> and generates flagged warning arrays.
+      </div>
+    </div>
+
+    <!-- COL 3 -->
+    <div style="flex:1; padding:3% 6% 3% 4%;">
+      <div class="agent-num">03</div>
+      <div class="heading heading-sm" style="margin-bottom:4%;">The Clerk</div>
+      <div class="body-text">
+        Serializes multi-agent legal logic and all extracted variables into a clean, <strong style="color:#000">schema-compliant JSON payload</strong> for real-time dashboard injection, visual bounding-box grounding, and audit PDF generation.
+      </div>
+    </div>
+
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">06 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 07 — VALIDATION CASE A -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-07" aria-label="Slide 7: Precision Extraction Demo">
+
+  <span class="section-label">07. VALIDATION CASE A</span>
+
+  <!-- Left text block -->
+  <div style="position:absolute; left:6%; top:16%; width:38%;">
+    <div class="heading heading-md" style="margin-bottom:3%;">Precision Extraction:<br>Late Fee Audit</div>
+    <div class="body-text" style="color:#888;">
+      End-to-end demonstration of a natural language query resolved against contract text with pixel-precise evidence grounding and statutory risk classification.
+    </div>
+  </div>
+
+  <!-- Vertical divider -->
+  <div class="vline" style="left:47%; top:14%; bottom:12%;"></div>
+
+  <!-- Right — Chat blocks -->
+  <div style="position:absolute; left:50%; top:16%; width:44%; bottom:14%;">
+
+    <div class="chat-block">
+      <div class="chat-speaker">User Query</div>
+      <div class="chat-text">"What are the late fee penalties for overdue installments?"</div>
+    </div>
+
+    <div class="chat-block response">
+      <div class="chat-speaker" style="color:#555;">LeaseSight Core</div>
+      <div class="chat-text">
+        "The system identified a late fee of <strong>25% of the overdue monthly installment</strong>. This clause has been flagged as predatory and potentially unenforceable under <strong>Section 74 of the Contract Act 1872</strong>."
+      </div>
+    </div>
+
+    <div class="evidence-box" style="margin-top:8px;">
+      <div class="caption-text" style="margin-bottom:4px;">Grounded Evidence</div>
+      <div class="body-text-sm" style="font-style:italic; color:#333;">
+        "…Late Fees and Penalties: 25% of overdue monthly installment…"
+      </div>
+      <div class="caption-text" style="margin-top:4px;">Section 7.2 &mdash; Page 4</div>
+    </div>
+
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">07 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 08 — OPERATIONAL RESILIENCE -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-08" aria-label="Slide 8: Graceful Degradation Fallback">
+
+  <span class="section-label">08. OPERATIONAL RESILIENCE</span>
+
+  <div class="vline" style="left:54%; top:14%; bottom:12%;"></div>
+
+  <!-- LEFT -->
+  <div style="position:absolute; left:6%; top:16%; width:44%; bottom:14%;">
+    <div class="heading heading-md" style="margin-bottom:4%;">Graceful Degradation<br>Fallback</div>
+    <div class="body-text" style="margin-bottom:5%;">
+      When cloud LLM inference gateways trigger <strong style="color:#000">HTTP 429 rate limits</strong>, the backend automatically intercepts the exception and switches to localized <strong style="color:#000">regex keyword parsers</strong> to preserve UI live uptime — zero disruption to the user.
+    </div>
+
+    <!-- Data table -->
+    <table class="data-table">
+      <tbody>
+        <tr>
+          <td>Security Deposit</td>
+          <td>PKR 300,000</td>
+          <td class="conf">94% confidence</td>
+        </tr>
+        <tr>
+          <td>Term Duration</td>
+          <td>24 Months</td>
+          <td class="conf">91% confidence</td>
+        </tr>
+        <tr>
+          <td>Governing Law</td>
+          <td>Wisconsin, USA</td>
+          <td class="conf">99% confidence</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- RIGHT — Oversized metric -->
+  <div style="position:absolute; left:57%; top:20%; width:36%; display:flex; flex-direction:column; align-items:center; justify-content:center; height:60%;">
+    <div style="font-size:clamp(48px,9vw,110px); font-weight:900; color:#000; line-height:1; letter-spacing:-0.03em;">5/10</div>
+    <div class="caption-text" style="margin-top:10px; text-align:center;">Risk Level Maintained<br>via Local Regex Keyword Matchers</div>
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">08 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 09 — EVALUATION METRICS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-09" aria-label="Slide 9: DeepEval Performance">
+
+  <span class="section-label">09. EVALUATION METRICS</span>
+
+  <div class="vline" style="left:52%; top:14%; bottom:12%;"></div>
+
+  <!-- LEFT — bars -->
+  <div style="position:absolute; left:6%; top:16%; width:42%; bottom:14%;">
+    <div class="heading heading-md" style="margin-bottom:5%;">DeepEval Performance Dials</div>
+
+    <!-- Bar 1 -->
+    <div class="bar-row">
+      <div class="bar-label">Faithfulness</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:89%;"></div>
+        <div class="bar-dot" style="left:89%;"></div>
+      </div>
+      <div class="bar-val">0.89</div>
+    </div>
+    <div class="body-text-sm" style="margin-bottom:5%; margin-left:30%;">Zero-context hallucination proof</div>
+
+    <!-- Bar 2 -->
+    <div class="bar-row">
+      <div class="bar-label">Answer Relevance</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:86%;"></div>
+        <div class="bar-dot" style="left:86%;"></div>
+      </div>
+      <div class="bar-val">0.86</div>
+    </div>
+    <div class="body-text-sm" style="margin-bottom:5%; margin-left:30%;">Semantic intent alignment</div>
+
+    <!-- Bar 3 -->
+    <div class="bar-row">
+      <div class="bar-label">Context Recall</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:91%;"></div>
+        <div class="bar-dot" style="left:91%;"></div>
+      </div>
+      <div class="bar-val">0.91</div>
+    </div>
+    <div class="body-text-sm" style="margin-left:30%;">Pinecone vector database accuracy</div>
+  </div>
+
+  <!-- RIGHT — highlight block + comparison -->
+  <div style="position:absolute; left:55%; top:16%; width:38%; bottom:14%;">
+
+    <div class="highlight-block" style="margin-bottom:5%;">
+      <div style="font-size:clamp(22px,4vw,48px); font-weight:900; color:#000; line-height:1.1;">84.6%</div>
+      <div class="caption-text" style="margin-top:5px;">Hybrid RAG Accuracy on CUAD Corpus</div>
+    </div>
+
+    <div class="caption-text" style="margin-bottom:3%;">Baseline Comparison</div>
+    <div class="body-text" style="margin-bottom:2%;">
+      <strong style="color:#000">BERT (Baseline):</strong> &nbsp;32.4%
+    </div>
+    <div class="body-text" style="margin-bottom:2%;">
+      <strong style="color:#000">RoBERTa-Large:</strong> &nbsp;48.2%
+    </div>
+    <div style="height:1px; background:#000; margin:4% 0;"></div>
+    <div class="body-text">
+      LeaseSight's hybrid dense retrieval outperforms both general-purpose transformer baselines by a significant margin on the CUAD legal corpus.
+    </div>
+
+  </div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">09 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 10 — CRITICAL DIAGNOSIS -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-10" aria-label="Slide 10: Anatomy of a Failure">
+
+  <span class="section-label">10. CRITICAL DIAGNOSIS</span>
+
+  <!-- Left content block -->
+  <div style="position:absolute; left:6%; top:16%; width:50%; bottom:14%;">
+    <div class="heading heading-md" style="margin-bottom:3%;">Anatomy of a Failure</div>
+
+    <div style="height:1px; background:#000; margin-bottom:5%;"></div>
+
+    <div class="caption-text" style="margin-bottom:2%;">Stress Test Incident</div>
+    <div style="background:#f5f5f5; border-left:2px solid #000; padding:8px 12px; margin-bottom:5%;">
+      <div style="font-family:monospace; font-size:clamp(7px,0.85vw,10px); font-weight:700; color:#000; letter-spacing:0.05em;">
+        RETRIEVAL_ERROR — Clause Split Boundary
+      </div>
+    </div>
+
+    <div class="caption-text" style="margin-bottom:2%;">Root Cause</div>
+    <div class="body-text" style="margin-bottom:5%;">
+      High-value data fragments across <strong style="color:#000">physical page breaks</strong>. Page 4 contains descriptive legal headers and is successfully retrieved, but the actual percentage value sits on Page 5 and drops below the hardcoded <code style="font-size:0.9em; background:#f0f0f0; padding:1px 5px;">top_k=5</code> cosine similarity ceiling.
+    </div>
+
+    <div class="caption-text" style="margin-bottom:2%;">Mitigation Strategy</div>
+    <div class="body-text">
+      Transition from rigid per-page partitioning to <strong style="color:#000">Advanced Sliding-Window Token Chunking</strong> with a 128-token overlap parameter to guarantee clause boundary continuity.
+    </div>
+  </div>
+
+  <!-- Right — empty negative space + oversized label -->
+  <div class="bg-number" style="right:3%; bottom:10%; color:#f5f5f5; font-size:clamp(70px,14vw,170px);">Err</div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">10 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 11 — ROADMAP -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide" id="slide-11" aria-label="Slide 11: Future Horizons">
+
+  <span class="section-label">11. ROADMAP</span>
+
+  <!-- Title -->
+  <div style="position:absolute; left:6%; top:16%; width:40%;">
+    <div class="heading heading-lg">Future<br>Horizons</div>
+  </div>
+
+  <!-- Vertical timeline axis (centered) -->
+  <div style="position:absolute; left:50%; top:14%; bottom:12%; width:1px; background:#000; transform:translateX(-50%);"></div>
+
+  <!-- Node 01 — LEFT -->
+  <div style="position:absolute; right:52%; top:18%; width:36%; text-align:right; padding-right:24px;">
+    <div class="caption-text" style="margin-bottom:3%;">Node 01</div>
+    <div class="heading heading-sm" style="margin-bottom:3%;">Sliding-Window Chunking</div>
+    <div class="body-text">
+      Implement token-based sliding chunk windowing with <strong style="color:#000">128-token overlap</strong> parameters to completely eradicate split-clause boundaries and recover fragmented legal evidence.
+    </div>
+  </div>
+  <!-- dot -->
+  <div style="position:absolute; left:50%; top:22%; width:10px; height:10px; background:#000; border-radius:50%; transform:translateX(-50%);"></div>
+
+  <!-- Node 02 — RIGHT -->
+  <div style="position:absolute; left:52%; top:40%; width:36%; padding-left:24px;">
+    <div class="caption-text" style="margin-bottom:3%;">Node 02</div>
+    <div class="heading heading-sm" style="margin-bottom:3%;">Cross-Document Matching</div>
+    <div class="body-text">
+      Expand Pinecone indexing to execute <strong style="color:#000">cross-document discrepancy matching</strong> across extensive lease portfolios simultaneously for precedent-driven risk benchmarking.
+    </div>
+  </div>
+  <!-- dot -->
+  <div style="position:absolute; left:50%; top:44%; width:10px; height:10px; background:#000; border-radius:50%; transform:translateX(-50%);"></div>
+
+  <!-- Node 03 — LEFT -->
+  <div style="position:absolute; right:52%; top:60%; width:36%; text-align:right; padding-right:24px;">
+    <div class="caption-text" style="margin-bottom:3%;">Node 03</div>
+    <div class="heading heading-sm" style="margin-bottom:3%;">Legal-RoBERTa Fine-Tuning</div>
+    <div class="body-text">
+      Fine-tune a custom <strong style="color:#000">domain-specific Legal-RoBERTa</strong> embedding transformer to replace general-purpose all-mpnet-base-v2 with a law-native semantic model.
+    </div>
+  </div>
+  <!-- dot -->
+  <div style="position:absolute; left:50%; top:64%; width:10px; height:10px; background:#000; border-radius:50%; transform:translateX(-50%);"></div>
+
+  <div class="slide-footer">
+    <span class="caption-text">LeaseSight &mdash; Air University Islamabad</span>
+    <span class="caption-text">11 / 12</span>
+  </div>
+
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<!-- SLIDE 12 — FINALIZATION [DARK MODE] -->
+<!-- ═══════════════════════════════════════════════════════════════════════ -->
+<section class="slide dark" id="slide-12" aria-label="Slide 12: Questions">
+
+  <span class="dark-section-label">12. FINALIZATION</span>
+
+  <!-- Cinematic centered layout -->
+  <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0;">
+
+    <!-- Large heading -->
+    <div style="font-size:clamp(44px,8vw,96px); font-weight:900; color:#fff; letter-spacing:0.02em; text-transform:uppercase; line-height:1; margin-bottom:3%;">Questions?</div>
+
+    <!-- Thin white line -->
+    <div style="width:160px; height:1px; background:#333; margin-bottom:3%;"></div>
+
+    <!-- Tagline -->
+    <div style="font-size:clamp(9px,1.1vw,13px); font-weight:300; color:#555; letter-spacing:0.08em; font-style:italic; margin-bottom:5%; text-align:center; max-width:420px;">
+      "Good design is obvious. Great design is transparent."
+    </div>
+
+    <!-- Roster pills -->
+    <div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-bottom:4%;">
+      <span class="dark-stamp">Zain ul Abideen</span>
+      <span class="dark-stamp">Fatima Tariq</span>
+      <span class="dark-stamp">Ali Hassan</span>
+      <span class="dark-stamp">Bilal Ahmed</span>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div style="position:absolute; bottom:0; left:0; right:0; height:8%; border-top:1px solid #111; display:flex; align-items:center; padding:0 6%; justify-content:space-between;">
+    <span class="dark-caption">Air University Islamabad &mdash; Dept. of Creative Technologies &mdash; 2026</span>
+    <span class="dark-caption">12 / 12</span>
+  </div>
+
+</section>
+
+</div><!-- /.slide-wrapper -->
+
+<!-- ─── JAVASCRIPT ─────────────────────────────────────────────────────────── -->
+<script>
+  const TOTAL = 12;
+  let current = 1;
+
+  function navigate(dir) {
+    const next = current + dir;
+    if (next < 1 || next > TOTAL) return;
+    current = next;
+    const target = document.getElementById(`slide-${String(current).padStart(2,'0')}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    document.getElementById('slideCounter').textContent = `${current} / ${TOTAL}`;
+    document.getElementById('prevBtn').disabled = current === 1;
+    document.getElementById('nextBtn').disabled = current === TOTAL;
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp'   || e.key === 'PageUp')   navigate(-1);
+  });
+
+  // IntersectionObserver to sync counter with scroll
+  const slides = document.querySelectorAll('.slide');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+        const id = entry.target.id; // "slide-02"
+        const num = parseInt(id.split('-')[1], 10);
+        current = num;
+        document.getElementById('slideCounter').textContent = `${current} / ${TOTAL}`;
+      }
+    });
+  }, { threshold: 0.55 });
+
+  slides.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

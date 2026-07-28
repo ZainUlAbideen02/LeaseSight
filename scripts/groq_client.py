@@ -146,25 +146,20 @@ class GroqChatClient:
                 last_exc = exc
                 msg = str(exc).lower()
 
-                # Quota/auth errors are fatal; don't retry
-                if any(k in msg for k in ("429", "quota", "rate limit", "resource exhausted", 
-                                          "api_key", "unauthorized", "permission", "credential")):
+                # Auth errors are fatal; don't retry
+                if any(k in msg for k in ("api_key", "unauthorized", "permission", "credential")):
                     raise RuntimeError(
-                        f"{agent_name}: Groq quota/auth error. Last error: {exc}"
+                        f"{agent_name}: Groq auth error. Last error: {exc}"
                     ) from exc
 
                 logger.warning("[%s] attempt %d/%d failed: %s",
                                agent_name, attempt + 1, self._max_retries, str(exc)[:300])
 
-                # Transient errors: retry with backoff
-                if attempt < self._max_retries - 1 and any(k in msg for k in ("503", "500", "overloaded", "temporarily unavailable")):
-                    wait = min(8 * (2 ** attempt), 64) + (attempt * 0.25)
-                    logger.info("[%s] Retrying in %.1f s (transient)...", agent_name, wait)
-                    time.sleep(wait)
-                    continue
-
+                # Rate limit / transient errors: retry with backoff
                 if attempt < self._max_retries - 1:
-                    time.sleep(2 * (attempt + 1))
+                    wait = max(5.0 * (attempt + 1), min(8 * (2 ** attempt), 64))
+                    logger.info("[%s] Retrying in %.1f s (rate limit / transient)...", agent_name, wait)
+                    time.sleep(wait)
                     continue
 
                 raise RuntimeError(
@@ -204,23 +199,18 @@ class GroqChatClient:
                 last_exc = exc
                 msg = str(exc).lower()
 
-                if any(k in msg for k in ("429", "quota", "rate limit", "resource exhausted",
-                                          "api_key", "unauthorized", "permission", "credential")):
+                if any(k in msg for k in ("api_key", "unauthorized", "permission", "credential")):
                     raise RuntimeError(
-                        f"{agent_name}: Groq quota/auth error. Last error: {exc}"
+                        f"{agent_name}: Groq auth error. Last error: {exc}"
                     ) from exc
 
                 logger.warning("[%s] attempt %d/%d failed: %s",
                                agent_name, attempt + 1, self._max_retries, str(exc)[:300])
 
-                if attempt < self._max_retries - 1 and any(k in msg for k in ("503", "500", "overloaded", "temporarily unavailable")):
-                    wait = min(8 * (2 ** attempt), 64) + (attempt * 0.25)
-                    logger.info("[%s] Retrying in %.1f s (transient)...", agent_name, wait)
-                    time.sleep(wait)
-                    continue
-
                 if attempt < self._max_retries - 1:
-                    time.sleep(2 * (attempt + 1))
+                    wait = max(5.0 * (attempt + 1), min(8 * (2 ** attempt), 64))
+                    logger.info("[%s] Retrying in %.1f s (rate limit / transient)...", agent_name, wait)
+                    time.sleep(wait)
                     continue
 
                 raise RuntimeError(

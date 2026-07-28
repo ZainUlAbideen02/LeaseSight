@@ -255,7 +255,7 @@ def _fallback_audit(context_text, target_file, warning=None):
         "warnings": [warning_text],
     }
 
-def _normalize_report(report, target_file):
+def _normalize_report(report, target_file, context_text=""):
     if not isinstance(report, dict):
         report = {}
     findings    = report.get("findings")    or []
@@ -270,22 +270,37 @@ def _normalize_report(report, target_file):
         elif text.strip():
             clean_warnings.append(text)
 
+    clean_context = re.sub(r'[^a-zA-Z0-9]', '', context_text or "").lower()
+
     for item in findings:
         item.setdefault("label",          "Finding")
         item.setdefault("value",          "Not Found")
         item.setdefault("evidence_quote", "Not Found")
         item.setdefault("risk_level",     "Medium")
+        quote = str(item.get("evidence_quote", ""))
+        if clean_context and quote and quote != "Not Found" and len(quote) >= 15:
+            clean_q = re.sub(r'[^a-zA-Z0-9]', '', quote).lower()
+            item["verified_grounded"] = clean_q[:25] in clean_context
+        else:
+            item["verified_grounded"] = True
+
     for item in obligations:
         item.setdefault("label",          "Obligation")
         item.setdefault("date",           "Not Found")
         item.setdefault("description",    item.get("value", ""))
         item.setdefault("evidence_quote", "Not Found")
+        quote = str(item.get("evidence_quote", ""))
+        if clean_context and quote and quote != "Not Found" and len(quote) >= 15:
+            clean_q = re.sub(r'[^a-zA-Z0-9]', '', quote).lower()
+            item["verified_grounded"] = clean_q[:25] in clean_context
+        else:
+            item["verified_grounded"] = True
 
     summary = report.get("summary_paragraph") or report.get("summary") or ""
     if not summary or "technical error" in summary.lower() or "crash" in summary.lower():
         summary = "Lease audit completed. Review the extracted fields and source evidence before committing this document to the knowledge base."
 
-    return {
+    out = {
         "lease_metadata":    report.get("lease_metadata") or {"title": target_file},
         "findings":          findings,
         "obligations":       obligations,
@@ -293,6 +308,14 @@ def _normalize_report(report, target_file):
         "risk_score":        int(report.get("risk_score") or 5),
         "warnings":          clean_warnings,
     }
+
+    try:
+        from api.schemas import AuditResult
+        AuditResult.model_validate(out)
+    except Exception as exc:
+        print(f"[AUDIT] Pydantic schema validation note: {exc}")
+
+    return out
 
 # ============================================================================
 # AGENT ENTRY POINTS
@@ -322,17 +345,10 @@ def run_full_audit(target_file, gemini_client=None, pinecone_index=None,
                    # Legacy keyword kept for backwards-compatibility; ignored
                    openai_client=None):
     """
-    Run the full Miner→Judge→Clerk audit pipeline.
-
-    Parameters
-    ----------
-    target_file    : str   – PDF file name (used to locate JSON map / Pinecone filter)
-    gemini_client  : GroqChatClient | None – injected by API; auto-created if None
-    pinecone_index : pinecone.Index  | None
-    openai_client  : (deprecated) accepted but ignored for backwards compat
+    Run the full Miner→Judge→Clerk audit pipeline with Parent context expansion
+    and hybrid BM25 + dense search retrieval.
     """
     try:
-        # Auto-initialise chat client when called standalone
         if gemini_client is None:
             gemini_client = GroqChatClient()
 
@@ -347,17 +363,19 @@ def run_full_audit(target_file, gemini_client=None, pinecone_index=None,
         if not context:
             try:
                 vec = get_local_embedding("Lease terms, parties, rent")
+                query_text_term = "Lease terms, parties, rent, commencement date, expiration, governing law"
                 results = retrieve_dual_namespace(
                     pinecone_index=pinecone_index,
                     query_vector=vec,
                     top_k=15,
                     file_name=target_file,
                     user_id=user_id,
-                    include_metadata=True
+                    include_metadata=True,
+                    query_text=query_text_term,
                 )
-                if results["matches"]:
+                if results.get("matches"):
                     context = "\n".join([
-                        f"Page {m['metadata'].get('page_number', '?')}: {m['metadata'].get('text', '')}"
+                        f"Page {m['metadata'].get('page_number', '?')}: {m['metadata'].get('parent_text') or m['metadata'].get('context_text') or m['metadata'].get('text', '')}"
                         for m in results["matches"]
                     ])
             except Exception as e:
@@ -381,11 +399,12 @@ def run_full_audit(target_file, gemini_client=None, pinecone_index=None,
                 file_name=target_file,
                 user_id=user_id,
                 include_metadata=True,
-                exclude_file_name=True
+                exclude_file_name=True,
+                query_text="Lease terms, parties, rent",
             )
             if m_res.get("matches"):
                 market_context = "\n".join([
-                    m["metadata"].get("text", "") for m in m_res["matches"]
+                    m["metadata"].get("parent_text") or m["metadata"].get("context_text") or m["metadata"].get("text", "") for m in m_res["matches"]
                 ])
         except Exception:
             pass
@@ -398,7 +417,7 @@ def run_full_audit(target_file, gemini_client=None, pinecone_index=None,
                 "market_context": market_context[:5000],
             })
             final_report = _call_agent(AUDIT_PROMPT, payload, "AUDIT", gemini_client, attempts=4)
-            return _normalize_report(final_report, target_file)
+            return _normalize_report(final_report, target_file, context_text=context)
         except Exception as e:
             print(f"[AUDIT] Falling back after error: {str(e)}")
             return _fallback_audit(context, target_file, str(e))

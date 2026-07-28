@@ -93,23 +93,27 @@ def _metadata_size(metadata: dict) -> int:
 def _truncate_metadata(metadata: dict, limit_bytes: int = PINECONE_METADATA_TARGET_BYTES) -> dict:
     """
     Keep Pinecone metadata safely below the 40KB hard limit while preserving
-    required schema fields and enough text for retrieval.
+    required schema fields (parent_id, parent_text, child text) and coordinates for retrieval.
     """
     safe = dict(metadata)
-    for text_limit, coord_limit in (
-        (12000, 22000),
-        (8000, 18000),
-        (5000, 12000),
-        (3000, 8000),
-        (1800, 5000),
-        (1000, 2500),
+    for text_limit, parent_limit, coord_limit in (
+        (12000, 15000, 22000),
+        (8000, 10000, 18000),
+        (5000, 7000, 12000),
+        (3000, 4000, 8000),
+        (1800, 2500, 5000),
+        (1000, 1500, 2500),
     ):
         safe["text"] = str(safe.get("text", ""))[:text_limit]
+        if "parent_text" in safe:
+            safe["parent_text"] = str(safe.get("parent_text", ""))[:parent_limit]
         safe["coordinates_json"] = str(safe.get("coordinates_json", ""))[:coord_limit]
         if _metadata_size(safe) < limit_bytes:
             return safe
 
     safe["text"] = str(safe.get("text", ""))[:800]
+    if "parent_text" in safe:
+        safe["parent_text"] = str(safe.get("parent_text", ""))[:1200]
     safe["coordinates_json"] = str(safe.get("coordinates_json", ""))[:1200]
     if _metadata_size(safe) >= PINECONE_METADATA_LIMIT_BYTES:
         safe["coordinates_json"] = "[]"
@@ -214,7 +218,9 @@ def process_new_pdf(
     with open(json_path, "w") as f:
         json.dump(spatial_data, f, indent=4)
 
-    # 2. Local Embedding + Pinecone Upsert (per-page)
+    # 2. Local Embedding + Pinecone Upsert (Two-Tier Parent-Child Chunking: 250-char child chunks)
+    CHILD_CHUNK_SIZE = 250
+
     for page in spatial_data["pages"]:
         page_text   = " ".join(line.get("content", "") for line in page.get("lines", []))
         page_number = page.get("page_number", 1)
@@ -222,32 +228,52 @@ def process_new_pdf(
         if not page_text.strip():
             continue
 
-        try:
-            vector = get_local_embedding(page_text)
-            coordinates = [
-                {
-                    "text": line.get("content", "")[:240],
-                    "bounding_box": line.get("bounding_box", []),
-                }
-                for line in page.get("lines", [])
-            ]
-            metadata = _truncate_metadata({
-                "filename": file_name,
-                "file_name": file_name,
-                "page_number": int(page_number) if str(page_number).isdigit() else page_number,
-                "chunk_index": 0,
-                "text": page_text,
-                "coordinates_json": json.dumps(coordinates, ensure_ascii=True, separators=(",", ":")),
-            })
+        parent_id = f"{file_name}_p{page_number}"
+        coordinates = [
+            {
+                "text": line.get("content", "")[:240],
+                "bounding_box": line.get("bounding_box", []),
+            }
+            for line in page.get("lines", [])
+        ]
+
+        # Slice full-page text into 250-character Child Chunks
+        child_chunks = []
+        if len(page_text) <= CHILD_CHUNK_SIZE:
+            child_chunks.append((0, page_text))
+        else:
+            for c_idx, start_pos in enumerate(range(0, len(page_text), CHILD_CHUNK_SIZE)):
+                c_text = page_text[start_pos : start_pos + CHILD_CHUNK_SIZE]
+                if c_text.strip():
+                    child_chunks.append((c_idx, c_text))
+
+        vectors_to_upsert = []
+        for c_idx, child_text in child_chunks:
+            try:
+                vector = get_local_embedding(child_text)
+                vector_id = f"{file_name}_p{page_number}_c{c_idx}"
+                metadata = _truncate_metadata({
+                    "filename": file_name,
+                    "file_name": file_name,
+                    "page_number": int(page_number) if str(page_number).isdigit() else page_number,
+                    "chunk_index": c_idx,
+                    "parent_id": parent_id,
+                    "text": child_text,
+                    "parent_text": page_text,
+                    "coordinates_json": json.dumps(coordinates, ensure_ascii=True, separators=(",", ":")),
+                })
+                vectors_to_upsert.append((vector_id, vector, metadata))
+            except Exception as e:
+                print(f"[INGEST] Skipping child vector for {file_name} p{page_number} c{c_idx}: {e}")
+
+        if vectors_to_upsert:
             ns = f"user_{user_id}" if user_id else "academic_baseline"
             if pinecone_index is None:
                 print(f"[INGEST] Skipping vector upsert for {file_name} page {page_number}: Pinecone unavailable")
             else:
-                pinecone_index.upsert(
-                    vectors=[(f"{file_name}_p{page_number}_c0", vector, metadata)],
-                    namespace=ns
-                )
-        except Exception as e:
-            print(f"[INGEST] Skipping vector upsert for {file_name} page {page_number}: {e}")
+                try:
+                    pinecone_index.upsert(vectors=vectors_to_upsert, namespace=ns)
+                except Exception as e:
+                    print(f"[INGEST] Skipping vector upsert for {file_name} page {page_number}: {e}")
 
     return json_path

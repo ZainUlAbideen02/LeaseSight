@@ -12,7 +12,7 @@ if (process.env.VERCEL === '1' && !clerkPublishableKey) {
 }
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  // output: 'export' is for Vercel static builds — disabled for local dev
   env: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: clerkPublishableKey,
     NEXT_PUBLIC_API_URL:

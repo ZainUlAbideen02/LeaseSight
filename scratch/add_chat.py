@@ -11,7 +11,7 @@ async def chat_endpoint(request: Request, keys: AuthKeys = Depends(get_api_keys)
         payload = await request.json()
         query = payload.get("query", "")
         file_name = payload.get("file_name", "")
-        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "local"
+        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "default_user"
 
         if not query or not file_name:
             raise HTTPException(status_code=400, detail="query and file_name are required")

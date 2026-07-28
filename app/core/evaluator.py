@@ -50,20 +50,76 @@ try:
             self._client = _GroqClient(api_key=api_key)
             return self._client
 
-        def generate(self, prompt: str, *args, **kwargs) -> str:
+        def generate(self, prompt: str, schema=None, *args, **kwargs):
+            """
+            Generate a response from Groq.
+
+            When DeepEval passes a Pydantic ``schema``, we:
+              1. Append an explicit JSON-shape instruction to the prompt.
+              2. Enable Groq's native ``json_object`` response_format.
+              3. Parse the raw string into the Pydantic model before returning
+                 so DeepEval receives the typed object it expects (fixing the
+                 ``'str' object has no attribute 'claims'`` error).
+            """
+            import json as _json
+
             if self._client is None:
                 self.load_model()
-            completion = self._client.chat.completions.create(
-                model=self._groq_model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=2048,
-            )
-            return completion.choices[0].message.content or ""
 
-        async def a_generate(self, prompt: str, *args, **kwargs) -> str:
-            # DeepEval calls this in async contexts; Groq SDK is sync so we defer to thread
-            return await asyncio.to_thread(self.generate, prompt)
+            # --- schema-aware prompt injection ---
+            effective_prompt = prompt
+            use_json_mode = schema is not None
+            if use_json_mode:
+                try:
+                    schema_hint = schema.schema_json()
+                except AttributeError:
+                    # Pydantic v1 fallback
+                    schema_hint = _json.dumps(schema.schema())
+                effective_prompt = (
+                    prompt
+                    + "\n\nYou MUST return ONLY valid JSON matching this schema: "
+                    + schema_hint
+                )
+
+            # --- Groq API call with retry for rate limits & transient errors ---
+            import time
+            last_exc = None
+            for attempt in range(4):
+                try:
+                    create_kwargs = dict(
+                        model=self._groq_model_name,
+                        messages=[{"role": "user", "content": effective_prompt}],
+                        temperature=0,
+                        max_tokens=2048,
+                    )
+                    if use_json_mode:
+                        create_kwargs["response_format"] = {"type": "json_object"}
+
+                    completion = self._client.chat.completions.create(**create_kwargs)
+                    content = completion.choices[0].message.content or ""
+
+                    # --- parse into Pydantic model when schema provided ---
+                    if use_json_mode and schema is not None:
+                        try:
+                            return schema.model_validate_json(content)
+                        except AttributeError:
+                            return schema(**_json.loads(content))
+
+                    return content
+                except Exception as exc:
+                    last_exc = exc
+                    if attempt < 3:
+                        time.sleep(5.0 * (attempt + 1))
+                        continue
+                    raise exc
+
+        async def a_generate(self, prompt: str, schema=None, *args, **kwargs):
+            """Async wrapper — defers to generate() via thread so Groq's sync SDK
+            is never called from an event loop directly."""
+            import functools
+            return await asyncio.to_thread(
+                functools.partial(self.generate, prompt, schema)
+            )
 
         def get_model_name(self, *args, **kwargs) -> str:
             return f"Groq/{self._groq_model_name}"

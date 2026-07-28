@@ -41,8 +41,10 @@ DEFAULT_NAMESPACE = os.getenv("REINDEX_NAMESPACE", "academic_baseline")
 # HELPERS
 # ---------------------------------------------------------------------------
 
+CHILD_CHUNK_SIZE = 250
+
 def _build_text_lookup() -> Dict[str, str]:
-    """vector_id -> page_text for every page in every JSON map."""
+    """vector_id -> child_chunk_text for every 250-char child chunk in every JSON map."""
     lookup: Dict[str, str] = {}
     for json_file in sorted(JSON_MAP_DIR.glob("*.json")):
         try:
@@ -54,15 +56,23 @@ def _build_text_lookup() -> Dict[str, str]:
                 page_text = " ".join(
                     line.get("content", "") for line in page.get("lines", [])
                 )
-                if page_text.strip():
+                if not page_text.strip():
+                    continue
+
+                if len(page_text) <= CHILD_CHUNK_SIZE:
                     lookup[f"{file_name}_p{page_num}_c0"] = page_text
+                else:
+                    for c_idx, start_pos in enumerate(range(0, len(page_text), CHILD_CHUNK_SIZE)):
+                        c_text = page_text[start_pos : start_pos + CHILD_CHUNK_SIZE]
+                        if c_text.strip():
+                            lookup[f"{file_name}_p{page_num}_c{c_idx}"] = c_text
         except Exception as e:
             print(f"  [WARN] Could not build lookup for {json_file.name}: {e}")
     return lookup
 
 
 def _build_metadata_lookup() -> Dict[str, Dict[str, Any]]:
-    """vector_id -> Pinecone metadata dict."""
+    """vector_id -> Pinecone metadata dict with parent_id and parent_text pointers."""
     lookup: Dict[str, Dict[str, Any]] = {}
     for json_file in sorted(JSON_MAP_DIR.glob("*.json")):
         try:
@@ -74,6 +84,10 @@ def _build_metadata_lookup() -> Dict[str, Dict[str, Any]]:
                 page_text = " ".join(
                     line.get("content", "") for line in page.get("lines", [])
                 )
+                if not page_text.strip():
+                    continue
+
+                parent_id = f"{file_name}_p{page_num}"
                 coordinates = [
                     {
                         "text": line.get("content", "")[:240],
@@ -81,15 +95,28 @@ def _build_metadata_lookup() -> Dict[str, Dict[str, Any]]:
                     }
                     for line in page.get("lines", [])
                 ]
-                vid = f"{file_name}_p{page_num}_c0"
-                lookup[vid] = _truncate_metadata({
-                    "filename": file_name,
-                    "file_name": file_name,
-                    "page_number": int(page_num) if str(page_num).isdigit() else page_num,
-                    "chunk_index": 0,
-                    "text": page_text,
-                    "coordinates_json": json.dumps(coordinates, ensure_ascii=True, separators=(",", ":")),
-                })
+
+                child_chunks = []
+                if len(page_text) <= CHILD_CHUNK_SIZE:
+                    child_chunks.append((0, page_text))
+                else:
+                    for c_idx, start_pos in enumerate(range(0, len(page_text), CHILD_CHUNK_SIZE)):
+                        c_text = page_text[start_pos : start_pos + CHILD_CHUNK_SIZE]
+                        if c_text.strip():
+                            child_chunks.append((c_idx, c_text))
+
+                for c_idx, child_text in child_chunks:
+                    vid = f"{file_name}_p{page_num}_c{c_idx}"
+                    lookup[vid] = _truncate_metadata({
+                        "filename": file_name,
+                        "file_name": file_name,
+                        "page_number": int(page_num) if str(page_num).isdigit() else page_num,
+                        "chunk_index": c_idx,
+                        "parent_id": parent_id,
+                        "text": child_text,
+                        "parent_text": page_text,
+                        "coordinates_json": json.dumps(coordinates, ensure_ascii=True, separators=(",", ":")),
+                    })
         except Exception as e:
             print(f"  [WARN] Could not build metadata for {json_file.name}: {e}")
     return lookup

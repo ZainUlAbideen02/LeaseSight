@@ -10,8 +10,13 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^7.3.1",
+    "@huggingface/transformers": "^4.2.0",
+    "@xenova/transformers": "^2.17.2",
+    "groq-sdk": "^1.4.0",
     "lucide-react": "^1.14.0",
+    "minisearch": "^7.2.0",
     "next": "16.2.4",
+    "pdfjs-dist": "^6.1.200",
     "plotly.js": "^3.5.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",

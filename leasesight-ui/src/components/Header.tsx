@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Activity, Search, Wifi, WifiOff, Network, Settings, ChevronDown, Database, LayoutPanelLeft, GraduationCap } from 'lucide-react';
+import { Activity, Search, Wifi, WifiOff, Network, Settings, ChevronDown, Database, LayoutPanelLeft, GraduationCap, Cpu } from 'lucide-react';
 import { api } from '@/lib/api';
 import { BrandLogo } from './BrandLogo';
+import { GroqKeyModal } from './GroqKeyModal';
+import { hasUserGroqKey } from '@/lib/userKeyStore';
 
 interface HeaderProps {
   isAuditing: boolean;
@@ -18,8 +20,11 @@ export function Header({ isAuditing, onToggleNetwork, documents, onSelectDoc }: 
   const [searchQuery, setSearchQuery]     = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isServicesOpen, setIsServicesOpen]   = useState(false);
+  const [isKeyModalOpen, setIsKeyModalOpen]   = useState(false);
+  const [hasKey, setHasKey]                   = useState(false);
 
   useEffect(() => {
+    setHasKey(hasUserGroqKey());
     const fetchHealth = () => {
       api.health().then(setHealth).catch(() => setHealth(null));
     };
@@ -168,6 +173,23 @@ export function Header({ isAuditing, onToggleNetwork, documents, onSelectDoc }: 
             : <WifiOff className="w-3.5 h-3.5" style={{ color: 'var(--accent-red)' }} />}
         </div>
 
+        {/* Client RAG Key Button */}
+        <button
+          onClick={() => setIsKeyModalOpen(true)}
+          className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border transition-all hover:-translate-y-0.5"
+          style={{
+            background: hasKey ? 'rgba(147, 51, 234, 0.08)' : 'rgba(217, 119, 6, 0.08)',
+            borderColor: hasKey ? 'rgba(147, 51, 234, 0.3)' : 'rgba(217, 119, 6, 0.3)',
+            color: hasKey ? '#9333EA' : '#D97706',
+          }}
+          title={hasKey ? 'Browser LLM Key Active' : 'Client RAG Fallback Mode'}
+        >
+          <Cpu className="w-3.5 h-3.5" />
+          <span className="text-[10px] font-bold tracking-wider hidden sm:inline">
+            {hasKey ? 'KEY ACTIVE' : 'FALLBACK'}
+          </span>
+        </button>
+
         {/* Divider */}
         <div className="w-px h-5" style={{ background: 'var(--border-default)' }} />
 
@@ -194,6 +216,8 @@ export function Header({ isAuditing, onToggleNetwork, documents, onSelectDoc }: 
                 style={{ background: isConnected ? 'var(--accent-emerald)' : 'var(--accent-red)' }} />
         </Link>
       </div>
+
+      <GroqKeyModal isOpen={isKeyModalOpen} onClose={() => { setIsKeyModalOpen(false); setHasKey(hasUserGroqKey()); }} />
     </header>
   );
 }

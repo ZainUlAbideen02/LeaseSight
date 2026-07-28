@@ -563,7 +563,7 @@ async def chat_endpoint(request: Request, keys: AuthKeys = Depends(get_api_keys)
         payload = await request.json()
         query = payload.get("query", "")
         file_name = payload.get("file_name", "")
-        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "local"
+        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "default_user"
 
         if not query or not file_name:
             raise HTTPException(status_code=400, detail="query and file_name are required")
@@ -640,7 +640,7 @@ async def start_audit(request: Request, keys: AuthKeys = Depends(get_api_keys)):
     try:
         payload = await request.json()
         file_name = payload.get("file_name")
-        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "local"
+        user_id = payload.get("user_id") or request.headers.get("X-User-Id") or "default_user"
         if not file_name: return {"error": "file_name required", "findings": [], "obligations": []}
 
         try:
@@ -753,7 +753,7 @@ async def start_migration(
 
     try:
         ensure_upload_directories()
-        user_id = user_id or x_user_id or "local"
+        user_id = user_id or x_user_id or "default_user"
         task_id    = str(uuid.uuid4())[:8]
         file_names = [os.path.basename(f.filename) for f in files]
         for file in files:

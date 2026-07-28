@@ -50,11 +50,14 @@ class Finding(BaseModel):
     label: str
     value: str
     evidence_quote: str
+    verified_grounded: Optional[bool] = True
 
 class Obligation(BaseModel):
     label: str
     date: str
     description: str
+    evidence_quote: Optional[str] = "Not Found"
+    verified_grounded: Optional[bool] = True
 
 class Annotation(BaseModel):
     page: int = Field(alias="page")
