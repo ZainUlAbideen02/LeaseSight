@@ -48,38 +48,13 @@ You MUST achieve 10/10 complete item extraction coverage without omitting any co
 
 EXTRACT THE FOLLOWING COMPREHENSIVE 10-POINT LEGAL AUDIT MATRIX:
 
-1. CORE ENTITY & METADATA IDENTIFICATION:
-   - Document Category Class (e.g., Commercial Lease, Content License, SaaS, NDA)
-   - First Party Name & Identity (Landlord / Licensor / Service Provider)
-   - Second Party Name & Identity (Tenant / Licensee / Client)
-   - Execution Date & Formal Agreement Title
+1. CORE ENTITY & METADATA IDENTIFICATION
+2. CHRONOLOGICAL LIFECYCLE CONTROLS
+3. FINANCIALS, FEES & REVENUE CONFIGURATIONS
+4. RISK, COMPLIANCE & LEGAL TRAPS
+5. RESTRICTIONS, SCOPE & GOVERNANCE
 
-2. CHRONOLOGICAL LIFECYCLE CONTROLS:
-   - Contract Commencement / Effective Date
-   - Initial Contract Duration (Term Length in months/years)
-   - Automatic Renewal / Extension Provisions (Provisions for rollover periods)
-   - Termination Notice Window (Required prior written notice period, e.g., 60 days)
-
-3. FINANCIALS, FEES & REVENUE CONFIGURATIONS:
-   - Base Fixed Monetary Obligations (e.g., Monthly Rent, Fixed Retainers)
-   - Variable Splits / Revenue Shares & Security Deposit Guarantees
-
-4. RISK, COMPLIANCE & LEGAL TRAPS:
-   - Financial Audit Rights & Shift-of-Cost Penalty Thresholds
-   - Late Fees, Interest Penalties, and Liquidated Damage Rates
-   - Non-Compete, Exclusivity, or Restrictive Covenants
-   - Indemnification & Liability Hold-Harmless Caps
-
-5. RESTRICTIONS, SCOPE & GOVERNANCE:
-   - Permitted Use / Scope of Distribution
-   - Subleasing / Sub-licensing Assignment Restrictions
-   - Governing Law Jurisdiction (State/Country) and Designated Dispute Venue
-   - Survival Clauses (e.g., Confidentiality surviving post-termination)
-
-CRITICAL EXTRACTION RULES:
-- Extract EVERY matching item into the 'findings' array. Do NOT summarize or truncate.
-- Every finding and obligation MUST include an 'evidence_quote' that is an EXACT verbatim string from the text.
-- Return ONLY valid JSON matching this structure:
+Return ONLY valid JSON matching this structure:
 {
   "lease_metadata": {"title": "...", "lessor": "...", "lessee": "..."},
   "findings": [{"label": "...", "value": "...", "evidence_quote": "...", "risk_level": "Low|Medium|High"}],
@@ -134,7 +109,8 @@ export function normalizeAuditResult(rawResult: Partial<AuditResult>, contextTex
 
 /**
  * Pure Browser-Native Hybrid Compliance & Legal Analysis Engine.
- * Tokenizes, scores, and extracts real verbatim compliance findings directly from PDF text.
+ * Tokenizes, scores, and extracts real verbatim compliance findings across 10 CUAD categories
+ * using a Weighted Criticality Risk Matrix.
  */
 export function buildBrowserNativeHybridAudit(documentText: string, fileName: string = 'Contract.pdf'): AuditResult {
   if (!documentText || documentText.trim().length === 0) {
@@ -175,6 +151,7 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
     return { quote: bestLine, score: maxScore };
   };
 
+  // 10 Core CUAD Extraction Categories with Weighted Criticality Points
   const categories = [
     {
       label: 'Governing Law & Jurisdiction',
@@ -183,17 +160,19 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
         const match = q.match(/(?:state of|laws of|jurisdiction of)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/i);
         return match ? `Governed by ${match[1]}` : 'Governing Law Provision Defined';
       },
-      baseRisk: 'Low' as const
+      points: 1, // Low (+1)
+      riskLevel: 'Low' as const
     },
     {
-      label: 'Early Termination & Default Terms',
-      keywords: ['terminate', 'termination', 'default', 'breach', 'cancellation', 'cancel', 'remedy', 'cure'],
+      label: 'Termination & Default Provisions',
+      keywords: ['terminate', 'termination', 'default', 'breach', 'cancellation', 'cancel', 'remedy', 'cure', 'foreclosure'],
       extractValue: (q: string) => {
-        if (q.toLowerCase().includes('default')) return 'Default Trigger & Breach Provision';
+        if (q.toLowerCase().includes('default') || q.toLowerCase().includes('foreclosure')) return 'Critical Breach & Default Trigger';
         if (q.toLowerCase().includes('cancel')) return 'Cancellation Rights Active';
         return 'Early Termination Clause';
       },
-      baseRisk: 'High' as const
+      points: 4, // Critical (+4)
+      riskLevel: 'High' as const
     },
     {
       label: 'Notice Period & Renewal Terms',
@@ -202,52 +181,102 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
         const match = q.match(/(\d+\s*(?:days?|months?))/i);
         return match ? `${match[1].toUpperCase()} Prior Written Notice` : 'Notice Period Specified';
       },
-      baseRisk: 'Medium' as const
+      points: 2, // Medium (+2)
+      riskLevel: 'Medium' as const
     },
     {
-      label: 'Limitation of Liability & Indemnity',
-      keywords: ['liability', 'indemnify', 'indemnification', 'cap', 'limitation of liability', 'hold harmless', 'damages'],
+      label: 'Liability Caps & Indemnification',
+      keywords: ['liability', 'indemnify', 'indemnification', 'cap', 'limitation of liability', 'hold harmless', 'damages', 'uncapped'],
       extractValue: (q: string) => {
-        if (q.toLowerCase().includes('indemnify')) return 'Indemnification & Hold Harmless Mandate';
+        if (q.toLowerCase().includes('indemnify') || q.toLowerCase().includes('uncapped')) return 'Uncapped Indemnification & Hold Harmless Mandate';
         return 'Limitation of Liability Provisions';
       },
-      baseRisk: 'High' as const
+      points: 4, // Critical (+4)
+      riskLevel: 'High' as const
     },
     {
-      label: 'Permitted Use & Operational Scope',
-      keywords: ['permitted use', 'scope', 'exclusivity', 'restriction', 'assignment', 'sublease', 'grant', 'license', 'amendment', 'agreement'],
+      label: 'Anti-Assignment & Sub-licensing Restrictions',
+      keywords: ['assignment', 'assign', 'sublease', 'sublicense', 'transfer', 'consent', 'affiliate'],
+      extractValue: (q: string) => {
+        if (q.toLowerCase().includes('consent')) return 'Prior Written Consent Required for Transfer';
+        return 'Anti-Assignment & Transfer Restrictions';
+      },
+      points: 2, // Medium (+2)
+      riskLevel: 'Medium' as const
+    },
+    {
+      label: 'Exclusivity & Non-Compete Obligations',
+      keywords: ['exclusivity', 'exclusive', 'non-compete', 'compete', 'restrictive covenant', 'territory'],
+      extractValue: (q: string) => {
+        if (q.toLowerCase().includes('non-compete')) return 'Strict Non-Compete Covenant';
+        return 'Exclusive Territory & Rights Mandate';
+      },
+      points: 1, // Low (+1)
+      riskLevel: 'Low' as const
+    },
+    {
+      label: 'Financial Audit Rights & Cost Penalties',
+      keywords: ['audit', 'records', 'inspection', 'inspect', 'books', 'underpayment', 'accounting'],
+      extractValue: (q: string) => {
+        return 'Financial Audit Rights & Inspection Covenant';
+      },
+      points: 1, // Low (+1)
+      riskLevel: 'Low' as const
+    },
+    {
+      label: 'Liquidated Damages & Late Fees',
+      keywords: ['liquidated damages', 'penalty', 'late fee', 'interest rate', 'default rate', 'forfeiture', 'security deposit'],
+      extractValue: (q: string) => {
+        if (q.toLowerCase().includes('deposit') || q.toLowerCase().includes('forfeiture')) return 'Security Deposit Forfeiture Trigger';
+        return 'Liquidated Damage & Late Penalty Clause';
+      },
+      points: 4, // Critical (+4)
+      riskLevel: 'High' as const
+    },
+    {
+      label: 'Confidentiality & Survival Clauses',
+      keywords: ['confidential', 'confidentiality', 'nondisclosure', 'survival', 'survive', 'trade secret', 'proprietary'],
+      extractValue: (q: string) => {
+        if (q.toLowerCase().includes('survive')) return 'Post-Termination Survival Provisions';
+        return 'Confidentiality & Proprietary Info Obligations';
+      },
+      points: 1, // Low (+1)
+      riskLevel: 'Low' as const
+    },
+    {
+      label: 'Permitted Use & Scope of License',
+      keywords: ['permitted use', 'scope', 'license', 'grant', 'amendment', 'agreement', 'purpose'],
       extractValue: (q: string) => {
         if (q.toLowerCase().includes('amendment')) return 'Formal Agreement Amendment';
-        return 'Permitted Operational Scope Specified';
+        return 'Permitted Use & Scope Defined';
       },
-      baseRisk: 'Medium' as const
+      baseRisk: 'Low' as const,
+      points: 1, // Low (+1)
+      riskLevel: 'Low' as const
     }
   ];
 
   const findings: FindingItem[] = [];
   const warnings: string[] = [];
-  let calculatedRiskScore = 2;
+  let weightedRiskPoints = 0;
 
   for (const cat of categories) {
     const { quote, score } = findBestQuote(cat.keywords);
     if (quote && score > 0) {
       const value = cat.extractValue(quote);
-      let riskLevel: 'Low' | 'Medium' | 'High' = cat.baseRisk;
-
-      if (riskLevel === 'High') calculatedRiskScore += 2;
-      else if (riskLevel === 'Medium') calculatedRiskScore += 1;
+      weightedRiskPoints += cat.points;
 
       findings.push({
         label: cat.label,
         value,
         evidence_quote: quote.length > 200 ? quote.slice(0, 197) + '...' : quote,
-        risk_level: riskLevel,
+        risk_level: cat.riskLevel,
         verified_grounded: true
       });
     }
   }
 
-  // Ensure non-empty findings array if document text is custom
+  // Ensure non-empty findings array
   if (findings.length === 0 && rawLines.length > 0) {
     findings.push({
       label: 'Document Content Parsed',
@@ -284,7 +313,7 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
     });
   }
 
-  // Extract Lessor/Title metadata from top lines
+  // Extract Title / Parties
   let extractedTitle = fileName;
   let extractedLessor = 'Lessor / First Party';
   let extractedLessee = 'Lessee / Second Party';
@@ -304,15 +333,18 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
 
   // Warnings generation
   if (findings.some(f => f.risk_level === 'High')) {
-    warnings.push('High-risk indemnity or default termination provisions detected in contract text.');
+    warnings.push('Critical indemnity, default trigger, or penalty provisions detected in contract text.');
   }
   if (findings.some(f => f.label.includes('Notice'))) {
     warnings.push('Strict prior written notice period required for termination or rollover.');
   }
 
+  // Calculate Weighted Criticality Risk Score normalized from 1 to 10
+  // Max possible points approx 20 -> map points to 1..10 scale
+  let calculatedRiskScore = Math.round(1 + (weightedRiskPoints / 18.0) * 9.0);
   calculatedRiskScore = Math.min(10, Math.max(1, calculatedRiskScore));
 
-  const summary_paragraph = `Browser hybrid compliance audit complete for ${fileName}. Extracted ${findings.length} key compliance findings and ${obligations.length} chronological obligations with 100% verbatim quote grounding verification.`;
+  const summary_paragraph = `Browser hybrid compliance audit complete for ${fileName}. Extracted ${findings.length} CUAD compliance findings and ${obligations.length} chronological obligations across the 10-point legal matrix.`;
 
   return {
     lease_metadata: {

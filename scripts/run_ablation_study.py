@@ -4,7 +4,7 @@ scripts/run_ablation_study.py
 -----------------------------
 Automated Ablation Study & Baseline Evaluation Runner for LeaseSight.
 
-Compares 4 Pipeline Variations across 100 SEC EDGAR Commercial Contracts:
+Compares 4 Pipeline Variations across 100 SEC EDGAR Commercial Contracts across 10 CUAD Categories:
 1. Full LeaseSight Engine: Hybrid Search (0.7 * Dense + 0.3 * BM25) + Parent-Child Expansion.
 2. Variant 1 (Flat RAG Baseline): Pure Dense Retrieval on 500-char Chunks (No BM25, No Parent Expansion).
 3. Variant 2 (Dense Only): Dense Retrieval (1.0 * Dense) + Parent-Child Expansion.
@@ -18,7 +18,6 @@ Outputs:
 import os
 import sys
 
-# Force offline mode for HuggingFace Hub so it uses local cached model instantly without network retries
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
 
@@ -30,7 +29,6 @@ import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any
 
-# Environment bootstrap
 if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
@@ -59,27 +57,57 @@ try:
 except ImportError:
     BM25Okapi = None
 
-# --- Compliance Queries & Keywords ---
+# --- 10 Core CUAD Compliance Queries & Keyword Schemas ---
 COMPLIANCE_QUERIES = [
     {
-        "category": "Governing Law",
+        "category": "Governing Law & Jurisdiction",
         "query": "What is the governing law, jurisdiction, or governing state of this agreement?",
         "keywords": ["governing law", "jurisdiction", "governed by", "state of", "laws of", "courts of", "venue"],
     },
     {
-        "category": "Early Termination",
+        "category": "Termination & Default Provisions",
         "query": "What are the early termination, cancellation, default, or breach provisions?",
-        "keywords": ["terminate", "termination", "default", "cancel", "cancellation", "breach", "cure", "remedy"],
+        "keywords": ["terminate", "termination", "default", "cancel", "cancellation", "breach", "cure", "remedy", "foreclosure"],
     },
     {
-        "category": "Notice Period",
+        "category": "Notice Period & Renewal Terms",
         "query": "What is the required notice period for termination, renewal, or modification?",
-        "keywords": ["notice", "days", "written notice", "prior notice", "promptly", "notice period", "calendar days"],
+        "keywords": ["notice", "days", "written notice", "prior notice", "promptly", "notice period", "calendar days", "renewal"],
     },
     {
-        "category": "Liability Caps",
+        "category": "Liability Caps & Indemnification",
         "query": "What are the limitation of liability, liability caps, or indemnification limits?",
-        "keywords": ["liability", "limitation of liability", "indemnify", "indemnification", "cap", "aggregate liability", "consequential damages"],
+        "keywords": ["liability", "limitation of liability", "indemnify", "indemnification", "cap", "aggregate liability", "consequential damages", "hold harmless"],
+    },
+    {
+        "category": "Anti-Assignment & Sub-licensing Restrictions",
+        "query": "What are the anti-assignment, sublease, transfer, or sub-licensing consent requirements?",
+        "keywords": ["assignment", "assign", "sublease", "sublicense", "transfer", "consent", "affiliate"],
+    },
+    {
+        "category": "Exclusivity & Non-Compete Obligations",
+        "query": "What are the exclusivity, non-compete, or restrictive territory covenants?",
+        "keywords": ["exclusivity", "exclusive", "non-compete", "compete", "restrictive covenant", "territory"],
+    },
+    {
+        "category": "Financial Audit Rights & Cost Penalties",
+        "query": "What are the audit rights, financial record inspections, or shift-of-cost audit thresholds?",
+        "keywords": ["audit", "records", "inspection", "inspect", "books", "underpayment", "accounting"],
+    },
+    {
+        "category": "Liquidated Damages & Late Fees",
+        "query": "What are the liquidated damages, late fee interest rates, or penalty triggers?",
+        "keywords": ["liquidated damages", "penalty", "late fee", "interest rate", "default rate", "forfeiture", "security deposit"],
+    },
+    {
+        "category": "Confidentiality & Survival Clauses",
+        "query": "What are the confidentiality obligations, non-disclosure scope, and post-termination survival terms?",
+        "keywords": ["confidential", "confidentiality", "nondisclosure", "survival", "survive", "trade secret", "proprietary"],
+    },
+    {
+        "category": "Permitted Use & Scope of License",
+        "query": "What is the permitted use, operational scope, or amendment grant of this agreement?",
+        "keywords": ["permitted use", "scope", "license", "grant", "amendment", "agreement", "purpose"],
     },
 ]
 
@@ -152,7 +180,7 @@ def create_flat_chunks(spatial_data: Dict[str, Any], chunk_size: int = 500) -> L
             "file_name": file_name,
             "page_number": 1,
             "text": full_text,
-            "parent_text": full_text,  # Flat: no expansion beyond chunk itself
+            "parent_text": full_text,
         })
     else:
         for idx, start_pos in enumerate(range(0, len(full_text), chunk_size)):
@@ -188,19 +216,14 @@ def run_variant_search(
     if not chunks:
         return []
 
-    # Dense Cosine Similarity
     if dense_weight > 0 and chunk_embeddings is not None and len(chunk_embeddings) > 0:
         query_vector = model.encode(query, normalize_embeddings=True)
         dense_scores = np.dot(chunk_embeddings, query_vector)
         min_d, max_d = float(dense_scores.min()), float(dense_scores.max())
-        if max_d > min_d:
-            dense_norm = (dense_scores - min_d) / (max_d - min_d)
-        else:
-            dense_norm = np.ones_like(dense_scores) if max_d > 0 else np.zeros_like(dense_scores)
+        dense_norm = (dense_scores - min_d) / (max_d - min_d) if max_d > min_d else np.zeros_like(dense_scores)
     else:
         dense_norm = np.zeros(len(chunks), dtype=float)
 
-    # Sparse BM25 Scoring
     if bm25_weight > 0 and BM25Okapi is not None:
         corpus = [_tokenize(c["text"] + " " + c["parent_text"]) for c in chunks]
         q_tokens = _tokenize(query)
@@ -208,18 +231,13 @@ def run_variant_search(
             bm25 = BM25Okapi(corpus)
             raw_bm25_scores = np.array(bm25.get_scores(q_tokens), dtype=float)
             min_bm, max_bm = float(raw_bm25_scores.min()), float(raw_bm25_scores.max())
-            if max_bm > min_bm:
-                bm25_norm = (raw_bm25_scores - min_bm) / (max_bm - min_bm)
-            else:
-                bm25_norm = np.ones_like(raw_bm25_scores) if max_bm > 0 else np.zeros_like(raw_bm25_scores)
+            bm25_norm = (raw_bm25_scores - min_bm) / (max_bm - min_bm) if max_bm > min_bm else np.zeros_like(raw_bm25_scores)
         else:
             bm25_norm = np.zeros(len(chunks), dtype=float)
     else:
         bm25_norm = np.zeros(len(chunks), dtype=float)
 
-    # Blended Score
     scores = (dense_weight * dense_norm) + (bm25_weight * bm25_norm)
-
     top_indices = np.argsort(scores)[::-1][:top_k]
     results = []
     for idx in top_indices:
@@ -234,7 +252,7 @@ def is_chunk_relevant(chunk: Dict[str, Any], keywords: List[str]) -> bool:
 
 def run_ablation_evaluation():
     print("=========================================================================")
-    print("      LeaseSight SEC EDGAR Ablation & Baseline Evaluation Suite          ")
+    print("      LeaseSight SEC EDGAR 10-CUAD Ablation Evaluation Suite              ")
     print("=========================================================================")
 
     if SentenceTransformer is None:
@@ -254,26 +272,25 @@ def run_ablation_evaluation():
         embed_model = SentenceTransformer("BAAI/bge-small-en-v1.5")
     print("[OK] Model loaded successfully.\n")
 
-    # Metrics trackers for 4 variants
     variants = {
         "full_leasesight": {
             "name": "Full LeaseSight Engine (Hybrid + Parent-Child)",
-            "hits": 0, "prec_list": [], "rec_list": [], "f1_list": [],
+            "hits": 0, "p1_cnt": 0, "mrr_sum": 0.0, "prec_list": [], "rec_list": [], "f1_list": [],
             "grounded_cnt": 0, "quotes_cnt": 0, "latency_sum": 0.0
         },
         "variant1_flat_rag": {
             "name": "Variant 1: Flat RAG Baseline (500-char Flat Chunks, Dense Only)",
-            "hits": 0, "prec_list": [], "rec_list": [], "f1_list": [],
+            "hits": 0, "p1_cnt": 0, "mrr_sum": 0.0, "prec_list": [], "rec_list": [], "f1_list": [],
             "grounded_cnt": 0, "quotes_cnt": 0, "latency_sum": 0.0
         },
         "variant2_dense_only": {
             "name": "Variant 2: Dense Only + Parent-Child (w_BM25 = 0)",
-            "hits": 0, "prec_list": [], "rec_list": [], "f1_list": [],
+            "hits": 0, "p1_cnt": 0, "mrr_sum": 0.0, "prec_list": [], "rec_list": [], "f1_list": [],
             "grounded_cnt": 0, "quotes_cnt": 0, "latency_sum": 0.0
         },
         "variant3_sparse_bm25": {
             "name": "Variant 3: Sparse BM25 Only + Parent-Child (w_Dense = 0)",
-            "hits": 0, "prec_list": [], "rec_list": [], "f1_list": [],
+            "hits": 0, "p1_cnt": 0, "mrr_sum": 0.0, "prec_list": [], "rec_list": [], "f1_list": [],
             "grounded_cnt": 0, "quotes_cnt": 0, "latency_sum": 0.0
         },
     }
@@ -281,24 +298,18 @@ def run_ablation_evaluation():
     total_queries_evaluated = 0
     start_bench_time = time.time()
 
-    print("--- Starting Comparative Ablation Run across 100 Documents ---")
-
     for idx, pdf_path_str in enumerate(pdf_files, start=1):
         pdf_path = Path(pdf_path_str)
-
-        # Layout extraction
         t0 = time.time()
         spatial_data = extract_pdf_layout(pdf_path)
         full_doc_text = " ".join(p.get("text", "") for p in spatial_data["pages"])
 
-        # Chunk sets
         chunks_pc = create_parent_child_chunks(spatial_data, child_size=250)
         chunks_flat = create_flat_chunks(spatial_data, chunk_size=500)
 
         if not chunks_pc:
             continue
 
-        # Embeddings
         embs_pc = embed_model.encode([c["text"] for c in chunks_pc], normalize_embeddings=True)
         embs_flat = embed_model.encode([c["text"] for c in chunks_flat], normalize_embeddings=True) if chunks_flat else None
         t_ingest = time.time() - t0
@@ -306,10 +317,9 @@ def run_ablation_evaluation():
         num_q = len(COMPLIANCE_QUERIES)
         total_queries_evaluated += num_q
 
-        # Evaluate 4 Variants
         for v_key, v_info in variants.items():
             t_v0 = time.time()
-            v_hits = 0
+            v_hits, v_p1, v_mrr_q = 0, 0, 0.0
             v_p_sum, v_r_sum, v_f1_sum = 0.0, 0.0, 0.0
             v_grounded, v_quotes = 0, 0
 
@@ -338,6 +348,18 @@ def run_ablation_evaluation():
                 if hit:
                     v_hits += 1
 
+                # Precision@1 calculation
+                p1 = 1 if (retrieved and is_chunk_relevant(retrieved[0], keywords)) else 0
+                v_p1 += p1
+
+                # MRR (Mean Reciprocal Rank) calculation
+                q_mrr = 0.0
+                for rank_idx, r_chunk in enumerate(retrieved, start=1):
+                    if is_chunk_relevant(r_chunk, keywords):
+                        q_mrr = 1.0 / rank_idx
+                        break
+                v_mrr_q += q_mrr
+
                 p = len(rel_ret) / 5.0
                 r = len(rel_ret) / max(total_rel, 1.0) if total_rel > 0 else (1.0 if hit else 0.0)
                 f1 = (2 * p * r) / (p + r) if (p + r) > 0 else 0.0
@@ -355,6 +377,8 @@ def run_ablation_evaluation():
             t_v_elapsed = (time.time() - t_v0) + (t_ingest / 4.0)
 
             v_info["hits"] += v_hits
+            v_info["p1_cnt"] += v_p1
+            v_info["mrr_sum"] += v_mrr_q
             v_info["prec_list"].append(v_p_sum / float(num_q))
             v_info["rec_list"].append(v_r_sum / float(num_q))
             v_info["f1_list"].append(v_f1_sum / float(num_q))
@@ -363,16 +387,16 @@ def run_ablation_evaluation():
             v_info["latency_sum"] += t_v_elapsed
 
         if idx % 10 == 0 or idx == len(pdf_files):
-            print(f"[{idx:03d}/100] Evaluated '{pdf_path.name[:35]}...' across all 4 variants")
+            print(f"[{idx:03d}/100] Evaluated '{pdf_path.name[:35]}...' across 10 CUAD categories")
 
     total_bench_time = time.time() - start_bench_time
 
-    # Calculate final aggregate results
     results_summary = {
         "ablation_metadata": {
             "dataset_name": "SEC EDGAR Commercial Contracts 100-PDF Sample",
             "total_documents": len(pdf_files),
             "total_queries": total_queries_evaluated,
+            "cuad_categories_count": len(COMPLIANCE_QUERIES),
             "embedding_model": "BAAI/bge-small-en-v1.5 (384-dim)",
             "execution_time_seconds": round(total_bench_time, 2),
         },
@@ -385,6 +409,8 @@ def run_ablation_evaluation():
 
     for v_key, v_info in variants.items():
         hr5 = (v_info["hits"] / float(total_queries_evaluated)) * 100.0 if total_queries_evaluated > 0 else 0.0
+        p1_avg = (v_info["p1_cnt"] / float(total_queries_evaluated)) * 100.0 if total_queries_evaluated > 0 else 0.0
+        mrr_avg = v_info["mrr_sum"] / float(total_queries_evaluated) if total_queries_evaluated > 0 else 0.0
         p_avg = float(np.mean(v_info["prec_list"])) if v_info["prec_list"] else 0.0
         r_avg = float(np.mean(v_info["rec_list"])) if v_info["rec_list"] else 0.0
         f1_avg = (2 * p_avg * r_avg) / (p_avg + r_avg) if (p_avg + r_avg) > 0 else 0.0
@@ -394,6 +420,8 @@ def run_ablation_evaluation():
         results_summary["variants"][v_key] = {
             "name": v_info["name"],
             "hit_rate_at_5_percentage": round(hr5, 2),
+            "precision_at_1_percentage": round(p1_avg, 2),
+            "mrr": round(mrr_avg, 4),
             "precision": round(p_avg, 4),
             "recall": round(r_avg, 4),
             "f1_score": round(f1_avg, 4),
@@ -402,17 +430,15 @@ def run_ablation_evaluation():
         }
 
         print(f" ► {v_info['name']}")
-        print(f"   HR@5: {hr5:.2f}% | Precision: {p_avg:.4f} | Recall: {r_avg:.4f} | F1: {f1_avg:.4f} | Faithfulness: {faith:.2f}% | Latency: {lat_avg:.3f}s")
+        print(f"   HR@5: {hr5:.2f}% | P@1: {p1_avg:.2f}% | MRR: {mrr_avg:.4f} | F1: {f1_avg:.4f} | Faithfulness: {faith:.2f}% | Latency: {lat_avg:.3f}s")
 
     print("=========================================================================\n")
 
-    # Save JSON results
     RESULTS_JSON_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(RESULTS_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(results_summary, f, indent=2)
     print(f"[OK] Raw ablation results saved to: {RESULTS_JSON_PATH.relative_to(PROJECT_ROOT)}")
 
-    # Generate Markdown Report
     generate_ablation_markdown_report(results_summary)
     print(f"[OK] Readable ablation summary report generated: {REPORT_MD_PATH.relative_to(PROJECT_ROOT)}")
 
@@ -421,11 +447,11 @@ def generate_ablation_markdown_report(data: Dict[str, Any]):
     vars_data = data["variants"]
 
     lines = [
-        "# LeaseSight Ablation Study & Baseline Evaluation Report",
+        "# LeaseSight 10-CUAD Ablation Study & Baseline Evaluation Report",
         "",
         f"> **Evaluation Dataset:** `{meta['dataset_name']}`  ",
         f"> **Total Documents Evaluated:** `{meta['total_documents']}`  ",
-        f"> **Total Queries Evaluated:** `{meta['total_queries']}`  ",
+        f"> **Total Queries Evaluated:** `{meta['total_queries']}` (across 10 CUAD categories)  ",
         f"> **Embedding Model:** `{meta['embedding_model']}`  ",
         f"> **Execution Duration:** `{meta['execution_time_seconds']} seconds`",
         "",
@@ -433,7 +459,7 @@ def generate_ablation_markdown_report(data: Dict[str, Any]):
         "",
         "## 1. Executive Ablation & Baseline Comparison Matrix",
         "",
-        "| RAG Pipeline Variation | Hit Rate (HR@5) | Bounded Precision ($P$) | Recall ($R$) | $F_1$-Score | Faithfulness Score | Avg Latency (s) |",
+        "| RAG Pipeline Variation | HR@5 (%) | P@1 (%) | MRR | $F_1$-Score | Faithfulness (%) | Latency (s) |",
         "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
     ]
 
@@ -441,30 +467,45 @@ def generate_ablation_markdown_report(data: Dict[str, Any]):
         is_leasesight = "full_leasesight" in v_key
         name_str = f"**{v['name']}**" if is_leasesight else v['name']
         hr_str = f"**{v['hit_rate_at_5_percentage']:.2f}%**" if is_leasesight else f"{v['hit_rate_at_5_percentage']:.2f}%"
-        p_str = f"**{v['precision']:.4f}**" if is_leasesight else f"{v['precision']:.4f}"
+        p1_str = f"**{v['precision_at_1_percentage']:.2f}%**" if is_leasesight else f"{v['precision_at_1_percentage']:.2f}%"
+        mrr_str = f"**{v['mrr']:.4f}**" if is_leasesight else f"{v['mrr']:.4f}"
         f1_str = f"**{v['f1_score']:.4f}**" if is_leasesight else f"{v['f1_score']:.4f}"
 
         lines.append(
-            f"| {name_str} | {hr_str} | {p_str} | {v['recall']:.4f} | {f1_str} | {v['faithfulness_percentage']:.2f}% | {v['avg_latency_per_doc_seconds']:.3f}s |"
+            f"| {name_str} | {hr_str} | {p1_str} | {mrr_str} | {f1_str} | {v['faithfulness_percentage']:.2f}% | {v['avg_latency_per_doc_seconds']:.3f}s |"
         )
 
     lines.extend([
         "",
         "---",
         "",
-        "## 2. Key Ablation Insights & Architectural Justifications",
+        "## 2. LaTeX Table Output (For Publication)",
         "",
-        "1. **Impact of Hybrid Search Score Fusion ($0.7 \\cdot S_{\\text{dense}} + 0.3 \\cdot S_{\\text{BM25}}$):**",
-        f"   - Full LeaseSight Engine achieves **{vars_data['full_leasesight']['hit_rate_at_5_percentage']:.2f}% HR@5** and **{vars_data['full_leasesight']['precision']:.4f} Precision**.",
-        f"   - Dense-Only Retrieval (Variant 2) drops to **{vars_data['variant2_dense_only']['hit_rate_at_5_percentage']:.2f}% HR@5**, demonstrating that sparse keyword matching (BM25) is essential for retrieving exact statutory/clause phrasing.",
-        f"   - Sparse BM25-Only (Variant 3) achieves **{vars_data['variant3_sparse_bm25']['hit_rate_at_5_percentage']:.2f}% HR@5**, showing strong keyword sensitivity but missing semantic paraphrases.",
-        "",
-        "2. **Impact of Two-Tier Parent-Child Chunking ($C_{\\text{parent}}$ Page Context vs. 500-char Flat Chunk):**",
-        f"   - Flat RAG Baseline (Variant 1) achieves **{vars_data['variant1_flat_rag']['hit_rate_at_5_percentage']:.2f}% HR@5** and **{vars_data['variant1_flat_rag']['precision']:.4f} Precision**.",
-        "   - Slicing 250-character granular child chunks ($C_{\\text{child}}$) while preserving full page parent text ($C_{\\text{parent}}$) dramatically improves retrieval precision while maintaining 100% verbatim quote grounding.",
-        "",
-        "3. **Zero-Hallucination Grounding Assurance:**",
-        "   - All 4 variations maintain **100.00% Faithfulness**, proving that LeaseSight's verbatim quote verification prevents model hallucination regardless of the underlying vector retrieval strategy.",
+        "```latex",
+        "\\begin{table}[h]",
+        "\\centering",
+        "\\caption{LeaseSight RAG Pipeline Ablation Study on SEC EDGAR 100-PDF Sample across 10 CUAD Categories}",
+        "\\label{tab:ablation_results}",
+        "\\begin{tabular}{lcccccc}",
+        "\\hline",
+        "\\textbf{Pipeline Variation} & \\textbf{HR@5 (\\%)} & \\textbf{P@1 (\\%)} & \\textbf{MRR} & \\textbf{$F_1$-Score} & \\textbf{Faithfulness (\\%)} & \\textbf{Latency (s)} \\\\",
+        "\\hline",
+    ])
+
+    for v_key, v in vars_data.items():
+        is_full = "full_leasesight" in v_key
+        name = f"\\textbf{{{v['name']}}}" if is_full else v['name']
+        hr = f"\\textbf{{{v['hit_rate_at_5_percentage']:.2f}}}" if is_full else f"{v['hit_rate_at_5_percentage']:.2f}"
+        p1 = f"\\textbf{{{v['precision_at_1_percentage']:.2f}}}" if is_full else f"{v['precision_at_1_percentage']:.2f}"
+        mrr = f"\\textbf{{{v['mrr']:.4f}}}" if is_full else f"{v['mrr']:.4f}"
+        f1 = f"\\textbf{{{v['f1_score']:.4f}}}" if is_full else f"{v['f1_score']:.4f}"
+        lines.append(f"{name} & {hr} & {p1} & {mrr} & {f1} & {v['faithfulness_percentage']:.2f} & {v['avg_latency_per_doc_seconds']:.3f} \\\\")
+
+    lines.extend([
+        "\\hline",
+        "\\end{tabular}",
+        "\\end{table}",
+        "```",
         "",
         "---",
         f"*Report generated automatically by `scripts/run_ablation_study.py` on {time.strftime('%Y-%m-%d %H:%M:%S')}.*",
