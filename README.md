@@ -1,18 +1,18 @@
 # 🔍 LeaseSight
 
-> **Dynamic Visual Lease Auditor & Precedent Query Engine**
+> **AI-Powered Lease Extraction, Audit & Compliance Platform**
 >
-> An enterprise-grade AI-powered Lease Extraction and Auditing platform. LeaseSight processes raw lease contracts, extracts critical clauses via a multi-agent pipeline (Miner, Judge, Clerk), generates 3D similarity correlation maps of precedent leases, and offers a document-scoped chat interface with real-time visual anchoring/bounding box highlighting.
+> An enterprise-grade AI-powered Lease Extraction and Auditing platform built for modern commercial real estate, legal, and procurement teams. LeaseSight processes raw lease contracts, scores risks against a 10-point weighted compliance matrix, extracts visual bounding boxes mapped 1:1 to original PDF source text, and syncs critical obligation deadlines to your calendar.
 
 ---
 
 ## 🚀 Key Features
 
-*   **Multi-Agent AI Pipeline**: Employs specialized LLM agents—**Miner** (for clause extraction), **Judge** (for risk assessment & validation), and **Clerk** (for structured data storage)—to perform consistent, deep audits.
-*   **OCR & Layout Analysis**: Utilizes **Azure Document Intelligence** to analyze document layouts, retrieve text coordinate maps, and visually highlight exact clause locations.
-*   **Dynamic Precedent Mapping**: Indexes document sections to **Pinecone** using **local embeddings (`all-mpnet-base-v2`)** to visualize internal query heatmaps and 3D database context relationships.
-*   **Scoped Document Chat**: Ask questions directly to your leases. The assistant will answer and automatically jump/scroll to the exact source page in the document preview.
-*   **Multi-Tenancy Segregation**: Client database namespaces isolate tenancy scopes, keeping data separated and secure.
+*   **Hybrid Client-Side & Server RAG Audit Engine**: Tokenizes and indexes extracted PDF layout lines using `BM25Okapi` / `minisearch`. Scores contract spans across 4 key compliance categories (Governing Law, Termination & Default, Notice Periods, Liability Caps).
+*   **Weighted Criticality Risk Matrix (1-10 Scale)**: Evaluates contractual terms across Low (+1), Medium (+2), and Critical (+4) risk levels to calculate realistic risk scores with zero generic fallbacks.
+*   **Direct PDF Document Grounding**: Interactive bounding box highlights (`#f59e0b` glowing amber overlays) positioned 1:1 over rendered PDF canvas text spans (`pdfjs-dist`).
+*   **Flexible Compute & BYOK (Bring Your Own Key)**: Choose between high-speed managed Groq LPU inference or plug in custom Groq/OpenAI API keys stored locally in browser storage for zero-fee processing.
+*   **Monetization & Web3Forms Contact Integration**: 4-tier subscription matrix (Free Tier, $5/mo Starter Plan, Pay-As-You-Go top-ups, BYOK Plan) with Web3Forms integration for enterprise briefing requests.
 
 ---
 
@@ -20,186 +20,108 @@
 
 ```mermaid
 graph TD
-    UI[leasesight-ui Next.js 16 Web App] -->|HTTPS REST| API[FastAPI Backend :8080]
-    Streamlit[app.py Streamlit Admin Panel] -->|Direct/REST| API
+    Client[Next.js 16 Web Application / leasesight-ui] -->|Browser RAG & BM25| LocalEngine[clientAuditEngine.ts & minisearch]
+    Client -->|Local Storage BYOK| GroqSDK[Groq LPU Llama-3.3-70B API]
+    Client -->|PDF Rendering & Highlights| PDFJS[pdfjs-dist Canvas & TextLayer]
+    Client -->|Enterprise Inquiries| Web3Forms[Web3Forms API]
+    Client -->|Authentication| Clerk[Clerk Auth Provider]
     
-    API -->|SQLite| DB[(leasesight.db)]
-    API -->|Layout / OCR| Azure[Azure Document Intelligence]
-    API -->|LLM Inference| Groq[Groq Llama-3.3-70b]
-    API -->|Vector Precedents| Pinecone[Pinecone Vector Database]
-    API -->|Local Embeddings| SentenceTransformers[Sentence-Transformers all-mpnet-base-v2]
+    subgraph Optional Python Backend
+        API[FastAPI Server :8080] -->|Layout / OCR| Azure[Azure Document Intelligence]
+        API -->|Vector Search| Pinecone[Pinecone Vector DB]
+    end
+    
+    Client -.->|Optional REST| API
 ```
 
 ---
 
-## 🛠️ System Prerequisites
+## 📁 Repository Structure
 
-Ensure you have the following installed on your system before proceeding:
-
-*   **Python 3.11.x** (Required for the Backend, Streamlit Admin App, and Scripts)
-*   **Node.js 18+** & **npm** (Required for the Next.js Frontend)
-*   **Docker** (Optional, for building/running containerized backend)
-*   **Git** (Recommended)
+```
+LeaseSight/
+├── leasesight-ui/           # Primary Next.js 16 Production Frontend Web Application
+│   ├── src/
+│   │   ├── app/             # App Router pages (Landing, Dashboard, Audit, Pricing, Settings)
+│   │   ├── components/      # UI components (Header, LeftPane, RightPane, Modals, Bounding Boxes)
+│   │   └── lib/             # Audit engine, BM25 scoring, PDF parser, Local document store
+│   └── package.json
+├── api/                     # (Optional) FastAPI Python Backend Server
+├── app.py                   # (Optional) Streamlit Admin Testing UI
+├── requirements.txt         # Python backend dependencies
+├── README.md                # Main repository documentation
+└── README_SETUP.md          # Step-by-step local setup guide
+```
 
 ---
 
 ## 🔑 Environment Configuration
 
-You must create configuration files containing secret API keys for both the Backend and Frontend.
-
-### 1. Backend Configuration (`.env`)
-Create a file named `.env` in the root project directory:
+### Frontend Configuration (`leasesight-ui/.env.local` or Vercel Environment Variables)
 
 ```ini
-# Core API Keys
+# Clerk Authentication Configuration
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# API Server Endpoint (Optional for client-first audit mode)
+NEXT_PUBLIC_API_URL=http://localhost:8080
+```
+
+### Python Backend Configuration (`.env` in root)
+
+```ini
 GROQ_API_KEY=gsk_your_groq_api_key
 PINECONE_API_KEY=pcsk_your_pinecone_api_key
 AZURE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
 AZURE_KEY=your_azure_document_intelligence_key
-
-# Optional
-GEMINI_API_KEY=your_google_gemini_key
-```
-
-### 2. Frontend Configuration (`leasesight-ui/.env.local`)
-Create a file named `.env.local` inside the `leasesight-ui/` directory:
-
-```ini
-# Clerk Authentication Configuration
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_your_development_key
-CLERK_SECRET_KEY=sk_test_your_development_secret
-
-# API Server Endpoint
-NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
 ---
 
-## ⚡ Step-by-Step Setup Guide
+## ⚡ Step-by-Step Quick Start
 
-Follow these sequential steps to set up and run the workspace.
-
-### Step 1: Clone the Repository
-```bash
-git clone https://github.com/ZainUlAbideen02/LeaseSight.git
-cd LeaseSight
-```
-
-### Step 2: Set Up Python Virtual Environment (Backend)
-Activate your virtual environment and install the required Python packages.
-
-```bash
-# Create environment
-python -m venv venv
-
-# Activate on Windows (PowerShell)
-venv\Scripts\Activate.ps1
-
-# Activate on macOS / Linux
-source venv/bin/activate
-
-# Install core dependencies
-pip install -r requirements.txt
-```
-
-> 💡 **NVIDIA GPU Users**: If you wish to run `sentence-transformers` embeddings on GPU, install the matching PyTorch CUDA library:
-> ```bash
-> pip install torch==2.3.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-> ```
-> *CPU-only setups require no extra steps; standard libraries will run out-of-the-box.*
-
-### Step 3: Install Frontend Dependencies
-Open a separate terminal window, navigate to the frontend directory, and install the package dependencies.
+### 1. Running the Next.js Web App (Primary)
 
 ```bash
 cd leasesight-ui
 npm install
-```
-
----
-
-## 🚀 Running the Project
-
-To run the complete LeaseSight ecosystem locally, start the following three services:
-
-### 1. Start the FastAPI API Backend
-From the root workspace directory with the virtual environment activated:
-
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
-```
-*   **API URL**: `http://localhost:8080`
-*   **Interactive Docs (Swagger)**: `http://localhost:8080/docs`
-*   **Health Check Endpoint**: `http://localhost:8080/api/health`
-
-### 2. Start the Streamlit Admin UI
-The Streamlit app acts as a dashboard/admin panel to quickly test document uploads, coordinates mappings, and 3D vector plots.
-
-```bash
-streamlit run app.py
-```
-*   **Streamlit URL**: `http://localhost:8501` (by default)
-
-### 3. Start the Next.js Frontend App
-From the `leasesight-ui` directory:
-
-```bash
 npm run dev
 ```
-*   **Frontend Web App**: `http://localhost:3000`
 
----
+Open `http://localhost:3000` in your browser.
 
-## 🐳 Running with Docker (Backend Only)
+### 2. (Optional) Running the Python FastAPI Backend
 
-A hardened `Dockerfile` is provided for containerizing the API server.
+```bash
+# Create & activate virtual environment
+python -m venv venv
+venv\Scripts\Activate.ps1   # Windows PowerShell
+# source venv/bin/activate  # macOS / Linux
 
-1.  **Build the Docker Image**:
-    ```bash
-    docker build -t leasesight-backend:latest .
-    ```
+# Install dependencies
+pip install -r requirements.txt
 
-2.  **Run the Container**:
-    Make sure you have your `.env` configured in the host root directory before running this command.
-    ```bash
-    docker run -d \
-      --name leasesight-api \
-      -p 8080:8080 \
-      --env-file .env \
-      -v "$(pwd)/data:/app/data" \
-      --restart unless-stopped \
-      leasesight-backend:latest
-    ```
+# Start FastAPI server
+uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
+```
 
 ---
 
 ## 🚢 Production Deployment
 
-The project provides automation scripts for production deployment (specifically configured for Caddy & Azure environment).
+The frontend is deployed to Vercel Production:
 
-*   `DEPLOY.sh`: Rebuilds the docker container, triggers Next.js static production build (`npm run build`), syncs the HTML output to Caddy's root directory (`/var/www/leasesight-ui`), and reloads Caddy with the correct CORS configuration.
-*   `RESTART_ALL.sh`: Cleans and restarts all backend docker containers and reloads Caddy.
-*   `CADDY_RESET.sh`: Diagnostics tool for Caddy web server certificates.
-*   `DIAGNOSE_SSL.sh` & `FIX_SSL_NOW.sh`: Troubleshoots LetsEncrypt/ZeroSSL problems on production domains.
+```bash
+cd leasesight-ui
+npm run build
+npx vercel --prod
+```
 
-Production configurations map the production API to `api.leasesights.tech` and the frontend interface to `www.leasesights.tech`.
+- **Production Web Application**: [https://www.leasesights.tech](https://www.leasesights.tech)
 
 ---
 
-## 🔍 Troubleshooting
+## 📄 License & Attribution
 
-*   **First Run Sentence-Transformers Model Download**:
-    On your first audit run, `sentence-transformers` downloads the embedding weight files (`all-mpnet-base-v2`, ~420MB) to cache. Make sure you have a working internet connection. Subsequent starts are instantaneous.
-*   **ChromaDB / SQLite Errors on Windows**:
-    If you see visual schema loading errors, try upgrading ChromaDB dependencies:
-    ```bash
-    pip install chromadb --upgrade
-    ```
-*   **Port 8080/3000 already in use**:
-    You can specify a different port when booting:
-    *   **Backend**: `uvicorn api.main:app --port 8000 --reload`
-    *   **Frontend**: Set `PORT=3001` or let Next.js prompt you automatically.
-    *   On Windows, you can also run the utility script to free up locked ports:
-        ```powershell
-        powershell -ExecutionPolicy Bypass -File .\scripts\free_ports.ps1
-        ```
+© 2026 LeaseSight Technologies. All rights reserved.

@@ -1,92 +1,85 @@
-# LeaseSight – Local Setup Guide
+# LeaseSight – Local Setup & Deployment Guide
 
-## Prerequisites
-- **Python 3.11.x** (recommended) – download from https://www.python.org/downloads/
-- **Node.js 18+** – only needed if you want to run the Next.js frontend
-- Git (optional)
+This guide provides step-by-step instructions for setting up LeaseSight locally and deploying to production.
 
 ---
 
-## Step 1 – Create & Activate a Virtual Environment
+## 🛠️ Prerequisites
 
-```bash
-# Windows (PowerShell)
-python -m venv venv
-venv\Scripts\activate
-
-# macOS / Linux
-python -m venv venv
-source venv/bin/activate
-```
+- **Node.js 18+** & **npm** (Required for the Next.js frontend)
+- **Python 3.11.x** (Optional, only needed if running the custom Python FastAPI backend)
+- **Git**
 
 ---
 
-## Step 2 – Install Python Dependencies
+## Step 1 – Next.js Frontend Setup (Primary App)
+
+The primary application is located inside `leasesight-ui/`.
 
 ```bash
-pip install -r requirements.txt
-```
-
-> **GPU users (NVIDIA):** After the above command, install the matching CUDA torch:
-> ```bash
-> pip install torch==2.3.1+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
-> ```
-> CPU-only users don't need to do anything extra.
-
----
-
-## Step 3 – Configure Environment Variables
-
-Copy the example file and fill in your API keys:
-
-```bash
-cp .env.production.example .env
-```
-
-Open `.env` and set:
-
-| Variable | Description |
-|---|---|
-| `GROQ_API_KEY` | From https://console.groq.com |
-| `PINECONE_API_KEY` | From https://app.pinecone.io |
-| `AZURE_KEY` | Azure Document Intelligence key |
-| `AZURE_ENDPOINT` | Azure Document Intelligence endpoint |
-| `GEMINI_API_KEY` | (Optional) Google Gemini key |
-
----
-
-## Step 4 – Run the Backend API
-
-```bash
-uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
-```
-
-The API will be available at: http://localhost:8080
-
----
-
-## Step 5 – (Optional) Run the Streamlit UI
-
-```bash
-streamlit run app.py
-```
-
----
-
-## Step 6 – (Optional) Run the Next.js Frontend
-
-```bash
+# 1. Navigate to the frontend directory
 cd leasesight-ui
+
+# 2. Install Node.js dependencies
 npm install
+
+# 3. Create environment file .env.local
+cp .env.production.example .env.local  # or create .env.local
+```
+
+Configure your `.env.local`:
+```ini
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Run the development server:
+```bash
 npm run dev
 ```
 
-Frontend will be at: http://localhost:3000
+Open `http://localhost:3000` in your browser.
 
 ---
 
-## Troubleshooting
+## Step 2 – (Optional) Python Backend Setup
 
-- **`sentence-transformers` model download**: The first run will automatically download the `all-mpnet-base-v2` model (~420 MB). Ensure you have an internet connection.
-- **ChromaDB errors on Windows**: Run `pip install chromadb --upgrade` if you see import errors.
-- **Port already in use**: Change `--port 8080` to another port like `--port 8000`.
+If you wish to run the FastAPI backend server for server-side OCR and vector database indexing:
+
+```bash
+# 1. Create virtual environment
+python -m venv venv
+
+# 2. Activate virtual environment
+# Windows (PowerShell):
+venv\Scripts\Activate.ps1
+# macOS / Linux:
+# source venv/bin/activate
+
+# 3. Install Python dependencies
+pip install -r requirements.txt
+
+# 4. Configure .env file in root directory
+# Add GROQ_API_KEY, PINECONE_API_KEY, AZURE_KEY, AZURE_ENDPOINT
+
+# 5. Start FastAPI server
+uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+---
+
+## Step 3 – Production Build & Deployment
+
+To verify and deploy the Next.js production build to Vercel:
+
+```bash
+cd leasesight-ui
+
+# Verify static build
+npm run build
+
+# Deploy to Vercel Production
+npx vercel --prod
+```
+
+- **Live Site**: [https://www.leasesights.tech](https://www.leasesights.tech)
