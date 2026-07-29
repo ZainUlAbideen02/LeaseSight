@@ -1,27 +1,30 @@
 /**
  * API Key State Management (userKeyStore.ts)
- * Client-side localStorage utility for user-managed custom Groq API key (`user_groq_key`).
+ * Client-side localStorage utility for user-managed custom Groq / OpenAI API key (`user_groq_api_key`).
  * SSR-safe execution.
  */
 
-const GROQ_KEY_STORAGE_NAME = 'user_groq_key';
+const KEY_STORAGE_NAMES = ['user_groq_api_key', 'user_groq_key'];
 
 /**
- * Retrieves the stored Groq API key from localStorage.
+ * Retrieves the stored API key from localStorage.
  */
 export function getUserGroqKey(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    const key = localStorage.getItem(GROQ_KEY_STORAGE_NAME);
-    return key ? key.trim() : null;
+    for (const name of KEY_STORAGE_NAMES) {
+      const key = localStorage.getItem(name);
+      if (key && key.trim().length > 0) return key.trim();
+    }
+    return null;
   } catch (err) {
-    console.error('[userKeyStore] Failed to read user_groq_key:', err);
+    console.error('[userKeyStore] Failed to read API key:', err);
     return null;
   }
 }
 
 /**
- * Saves a custom Groq API key to localStorage.
+ * Saves a custom API key to localStorage under user_groq_api_key.
  */
 export function setUserGroqKey(key: string): void {
   if (typeof window === 'undefined') return;
@@ -31,26 +34,28 @@ export function setUserGroqKey(key: string): void {
       removeUserGroqKey();
       return;
     }
-    localStorage.setItem(GROQ_KEY_STORAGE_NAME, cleanKey);
+    localStorage.setItem('user_groq_api_key', cleanKey);
+    localStorage.setItem('user_groq_key', cleanKey);
   } catch (err) {
-    console.error('[userKeyStore] Failed to set user_groq_key:', err);
+    console.error('[userKeyStore] Failed to set user_groq_api_key:', err);
   }
 }
 
 /**
- * Removes the stored Groq API key from localStorage.
+ * Removes the stored API key from localStorage.
  */
 export function removeUserGroqKey(): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem(GROQ_KEY_STORAGE_NAME);
+    localStorage.removeItem('user_groq_api_key');
+    localStorage.removeItem('user_groq_key');
   } catch (err) {
-    console.error('[userKeyStore] Failed to remove user_groq_key:', err);
+    console.error('[userKeyStore] Failed to remove API key:', err);
   }
 }
 
 /**
- * Checks whether a non-empty Groq API key exists in localStorage.
+ * Checks whether a non-empty API key exists in localStorage.
  */
 export function hasUserGroqKey(): boolean {
   const key = getUserGroqKey();

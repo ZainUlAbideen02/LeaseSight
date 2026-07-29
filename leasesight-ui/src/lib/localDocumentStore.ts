@@ -154,6 +154,7 @@ export function setLocalAuditResult(fileName: string, auditResult: AuditResult):
 
 /**
  * Searches line layout bounding boxes locally for an evidence quote.
+ * Converts PDF point coordinates (72 DPI) to normalized inch dimensions.
  */
 export function locateSnippetLocally(fileName: string, snippet: string): Annotation | null {
   const doc = getLocalDocument(fileName);
@@ -165,37 +166,58 @@ export function locateSnippetLocally(fileName: string, snippet: string): Annotat
   const POINTS_PER_INCH = 72.0;
 
   for (const page of doc.pages) {
+    const matchingLines: typeof page.lines = [];
+    const snippetHead = cleanSnippet.slice(0, Math.min(20, cleanSnippet.length));
+
     for (const line of page.lines) {
       const cleanLine = line.text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      if (cleanLine.includes(cleanSnippet.slice(0, 18)) || cleanSnippet.includes(cleanLine.slice(0, 18))) {
-        const xInch = line.x > 0 ? line.x / POINTS_PER_INCH : 0.8;
-        const yInch = line.y > 0 ? line.y / POINTS_PER_INCH : 1.2;
-        const wInch = line.width > 0 ? Math.max(1.5, line.width / POINTS_PER_INCH) : 6.0;
-        const hInch = line.height > 0 ? Math.max(0.25, line.height / POINTS_PER_INCH) : 0.4;
+      if (!cleanLine) continue;
 
-        return {
-          page: page.pageNumber,
-          x: Math.min(7.5, Math.max(0.5, xInch)),
-          y: Math.min(10.0, Math.max(0.5, yInch)),
-          width: Math.min(7.0, wInch),
-          height: Math.min(2.0, hInch),
-          color: 'orange',
-          text: line.text,
-        };
+      if (cleanLine.includes(snippetHead) || cleanSnippet.includes(cleanLine.slice(0, Math.min(20, cleanLine.length)))) {
+        matchingLines.push(line);
       }
+    }
+
+    if (matchingLines.length > 0) {
+      const minX = Math.min(...matchingLines.map(l => l.x));
+      const minY = Math.min(...matchingLines.map(l => l.y));
+      const maxX = Math.max(...matchingLines.map(l => l.x + l.width));
+      const maxY = Math.max(...matchingLines.map(l => l.y + l.height));
+
+      const widthPts = Math.max(100, maxX - minX);
+      const heightPts = Math.max(15, maxY - minY);
+
+      const xInch = minX / POINTS_PER_INCH;
+      const yInch = minY / POINTS_PER_INCH;
+      const wInch = widthPts / POINTS_PER_INCH;
+      const hInch = heightPts / POINTS_PER_INCH;
+
+      return {
+        page: page.pageNumber,
+        x: Math.min(7.5, Math.max(0.4, xInch)),
+        y: Math.min(10.0, Math.max(0.4, yInch)),
+        width: Math.min(7.5, Math.max(1.0, wInch)),
+        height: Math.min(3.0, Math.max(0.25, hInch)),
+        color: 'orange',
+        text: matchingLines[0].text,
+      };
     }
   }
 
-  // Fallback to searching page fullText if single line didn't hit exact substring match
+  // Fallback to searching page fullText
   for (const page of doc.pages) {
     const cleanFullText = page.fullText.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    if (cleanFullText.includes(cleanSnippet.slice(0, 18))) {
-      const firstLine = page.lines[0];
-      const yInch = firstLine && firstLine.y > 0 ? firstLine.y / POINTS_PER_INCH : 1.5;
+    const snippetHead = cleanSnippet.slice(0, Math.min(18, cleanSnippet.length));
+
+    if (cleanFullText.includes(snippetHead)) {
+      const lineIdx = page.lines.findIndex(l => l.text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase().includes(snippetHead.slice(0, 10)));
+      const matchedLine = lineIdx >= 0 ? page.lines[lineIdx] : page.lines[0];
+      const yPts = matchedLine ? matchedLine.y : 108.0;
+
       return {
         page: page.pageNumber,
         x: 0.8,
-        y: Math.min(10.0, Math.max(0.8, yInch)),
+        y: Math.min(10.0, Math.max(0.5, yPts / POINTS_PER_INCH)),
         width: 6.8,
         height: 0.4,
         color: 'orange',
@@ -211,7 +233,7 @@ export function locateSnippetLocally(fileName: string, snippet: string): Annotat
       x: 0.8,
       y: 1.5,
       width: 6.8,
-      height: 0.4,
+      height: 0.5,
       color: 'orange',
       text: snippet,
     };

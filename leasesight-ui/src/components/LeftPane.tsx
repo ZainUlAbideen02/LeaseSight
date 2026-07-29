@@ -2,17 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Play, AlertTriangle, CheckCircle, Database, Download, Upload } from 'lucide-react';
-import Link from 'next/link';
 import { api } from '@/lib/api';
 import { AuditResult, Annotation } from '@/lib/types';
-import { showErrorToast, showWarningToast } from '@/lib/errorMessages';
+import { showErrorToast } from '@/lib/errorMessages';
 import { RiskGauge } from './RiskGauge';
 import { FindingCard } from './FindingCard';
 import { CommitModal } from './CommitModal';
 import { ObligationTimeline } from './ObligationTimeline';
 import { AuditSkeleton } from './AuditSkeleton';
 import { FileUploadStatus } from './FileUploadStatus';
-import { BenchmarkPanel } from './BenchmarkPanel';
 
 import { parsePdfLayout } from '@/lib/pdfParser';
 import { chunkDocumentLayouts } from '@/lib/browserChunker';
@@ -52,7 +50,6 @@ export function LeftPane({
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
   const [pipelineError, setPipelineError] = useState<string | undefined>();
   const [auditStatus, setAuditStatus] = useState('Analyzing Clauses...');
-  const [showBenchmarks, setShowBenchmarks] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const statusCycleRef = useRef<NodeJS.Timeout | null>(null);
   const analysisLoading = isAuditing || isAuditRunning;
@@ -93,28 +90,19 @@ export function LeftPane({
     setPipelineError(undefined);
 
     try {
-      // 1. Client-side PDF layout parsing via pdfjs-dist
       const arrayBuffer = await file.arrayBuffer();
       const pages = await parsePdfLayout(arrayBuffer);
-
-      // 2. Parent-child metadata chunking
       const chunkedDoc = chunkDocumentLayouts(file.name, pages);
-
-      // 3. Save local document state in RAM and localStorage
       const docState = saveLocalDocument(file.name, file, pages, chunkedDoc);
 
-      // 4. Update UI state and documents list
       const allNames = getStoredDocumentNames();
       setDocuments(allNames);
       onSelectDoc(file.name);
 
       setPipelineStatus(null);
-
-      // 5. Trigger browser compliance audit
       await runAuditForDoc(docState.fileName, docState.fullText);
     } catch (error: any) {
       console.error('Local PDF Parsing failed:', error);
-      // Fallback to backend API upload if client-side parse encounters unsupported PDF structures
       try {
         const res = await api.upload(file);
         const docsRes = await api.documents();
@@ -218,9 +206,7 @@ export function LeftPane({
     try {
       try {
         await api.commit(selectedDoc);
-      } catch (err) {
-        // Fallback to local storage commit state if API unavailable
-      }
+      } catch (err) {}
       if (typeof window !== 'undefined') {
         window.localStorage.setItem(`ls_committed_${selectedDoc}`, 'true');
       }
@@ -248,7 +234,6 @@ export function LeftPane({
       window.URL.revokeObjectURL(url);
       a.remove();
     } catch (e) {
-      // Fallback local JSON export if PDF export API fails
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(auditResult, null, 2));
       const a = document.createElement('a');
       a.href = dataStr;
@@ -277,7 +262,7 @@ export function LeftPane({
       onDragOver={(e) => e.preventDefault()}
       onDrop={handleFileDrop}
     >
-      {/* Document Selector */}
+      {/* Document Selector Header */}
       <div className="p-4 border-b" style={{ borderColor: 'var(--border-default)' }}>
         <label className="text-xs font-medium mb-1.5 block" style={{ color: 'var(--text-secondary)' }}>
           Document
@@ -369,22 +354,6 @@ export function LeftPane({
 
       {/* Scrollable Results Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="rounded-lg border" style={{ borderColor: 'var(--border-default)', background: 'var(--bg-card)' }}>
-          <button
-            onClick={() => setShowBenchmarks(value => !value)}
-            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs font-semibold uppercase tracking-[0.12em]"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <span>📊 Academic Benchmarks & Evaluation</span>
-            <ChevronDown className={`h-4 w-4 transition-transform ${showBenchmarks ? 'rotate-180' : ''}`} />
-          </button>
-          {showBenchmarks && (
-            <div className="border-t p-3" style={{ borderColor: 'var(--border-default)' }}>
-              <BenchmarkPanel />
-            </div>
-          )}
-        </div>
-
         {analysisLoading ? (
           <AuditSkeleton />
         ) : auditResult ? (

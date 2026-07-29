@@ -45,15 +45,16 @@ export function RightPane({ selectedDoc, annotations, targetPage }: RightPanePro
     setScale(1.0);
   }, [selectedDoc]);
 
-  // Scroll to targetPage when it changes (from audit/chat)
+  // Scroll to targetPage / annotations when they change
   useEffect(() => {
-    if (targetPage < 1 || targetPage > numPages) return;
-    setCurrentPage(targetPage);
-    const el = pageRefs.current.get(targetPage);
+    const pg = annotations.length > 0 && annotations[0].page ? annotations[0].page : targetPage;
+    if (pg < 1) return;
+    setCurrentPage(pg);
+    const el = pageRefs.current.get(pg);
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [targetPage, numPages]);
+  }, [targetPage, annotations, numPages]);
 
   // Resize observer
   useEffect(() => {
@@ -114,6 +115,52 @@ export function RightPane({ selectedDoc, annotations, targetPage }: RightPanePro
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  // Compute DOM bounding box rect for annotations matching pageNum
+  const getDomHighlightRect = useCallback((pageNum: number, textSnippet: string) => {
+    const pageEl = pageRefs.current.get(pageNum);
+    if (!pageEl || !textSnippet) return null;
+
+    const cleanSnippet = textSnippet.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (cleanSnippet.length < 3) return null;
+
+    const snippetHead = cleanSnippet.slice(0, Math.min(18, cleanSnippet.length));
+    const spans = Array.from(pageEl.querySelectorAll('.react-pdf__Page__textContent span, .textLayer span'));
+
+    const matchingSpans = spans.filter(span => {
+      const cleanSpan = (span.textContent || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+      return cleanSpan.length > 0 && (cleanSpan.includes(snippetHead) || snippetHead.includes(cleanSpan.slice(0, Math.min(18, cleanSpan.length))));
+    });
+
+    if (matchingSpans.length === 0) return null;
+
+    const pageRect = pageEl.getBoundingClientRect();
+    if (pageRect.width === 0 || pageRect.height === 0) return null;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    matchingSpans.forEach(span => {
+      const rect = span.getBoundingClientRect();
+      const left = rect.left - pageRect.left;
+      const top = rect.top - pageRect.top;
+      const right = rect.right - pageRect.left;
+      const bottom = rect.bottom - pageRect.top;
+
+      if (left < minX) minX = left;
+      if (top < minY) minY = top;
+      if (right > maxX) maxX = right;
+      if (bottom > maxY) maxY = bottom;
+    });
+
+    if (minX === Infinity || maxX === -Infinity) return null;
+
+    return {
+      left: Math.max(0, minX - 4),
+      top: Math.max(0, minY - 2),
+      width: Math.max(40, (maxX - minX) + 8),
+      height: Math.max(16, (maxY - minY) + 4)
+    };
+  }, []);
+
   const pageWidth = containerWidth * scale;
 
   // Annotation overlay helper
@@ -122,31 +169,33 @@ export function RightPane({ selectedDoc, annotations, targetPage }: RightPanePro
     return annotations
       .filter(a => a.page === pageNum)
       .map((ann, i) => {
-        const pxX = (ann.x / PAGE_WIDTH_INCHES)  * pageWidth;
-        const pxY = (ann.y / PAGE_HEIGHT_INCHES) * pageH;
-        const pxW = (ann.width  / PAGE_WIDTH_INCHES)  * pageWidth;
-        const pxH = (ann.height / PAGE_HEIGHT_INCHES) * pageH;
+        const domRect = getDomHighlightRect(pageNum, ann.text);
+
+        const pxX = domRect ? domRect.left : (ann.x / PAGE_WIDTH_INCHES) * pageWidth;
+        const pxY = domRect ? domRect.top : (ann.y / PAGE_HEIGHT_INCHES) * pageH;
+        const pxW = domRect ? domRect.width : (ann.width / PAGE_WIDTH_INCHES) * pageWidth;
+        const pxH = domRect ? domRect.height : (ann.height / PAGE_HEIGHT_INCHES) * pageH;
         const color = ann.color === 'orange' ? '#f59e0b' : '#ef4444';
+
         return (
           <div
             key={i}
-            className="absolute z-10 pointer-events-none rounded-[2px] animate-pulse"
+            className="absolute z-30 pointer-events-none rounded transition-all duration-300 animate-pulse"
             style={{
-              left:   `${pxX}px`,
-              top:    `${pxY}px`,
-              width:  `${pxW}px`,
-              height: `${pxH}px`,
-              backgroundColor: `${color}15`,
-              border: `1px solid ${color}ee`,
-              boxShadow: `0 0 15px ${color}44`,
-              transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+              left: `${pxX}px`,
+              top: `${pxY}px`,
+              width: `${Math.max(40, pxW)}px`,
+              height: `${Math.max(16, pxH)}px`,
+              backgroundColor: 'rgba(245, 158, 11, 0.25)',
+              border: `2px solid ${color}`,
+              boxShadow: `0 0 24px ${color}aa, inset 0 0 12px ${color}44`,
             }}
           >
             {/* Surgical Corner Accents */}
-            <div className="absolute top-0 left-0 w-1 h-1 border-t border-l" style={{ borderColor: color }} />
-            <div className="absolute top-0 right-0 w-1 h-1 border-t border-r" style={{ borderColor: color }} />
-            <div className="absolute bottom-0 left-0 w-1 h-1 border-b border-l" style={{ borderColor: color }} />
-            <div className="absolute bottom-0 right-0 w-1 h-1 border-b border-r" style={{ borderColor: color }} />
+            <div className="absolute -top-1 -left-1 w-2.5 h-2.5 border-t-2 border-l-2" style={{ borderColor: color }} />
+            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 border-t-2 border-r-2" style={{ borderColor: color }} />
+            <div className="absolute -bottom-1 -left-1 w-2.5 h-2.5 border-b-2 border-l-2" style={{ borderColor: color }} />
+            <div className="absolute -bottom-1 -right-1 w-2.5 h-2.5 border-b-2 border-r-2" style={{ borderColor: color }} />
           </div>
         );
       });
@@ -273,7 +322,7 @@ export function RightPane({ selectedDoc, annotations, targetPage }: RightPanePro
                 <Page
                   pageNumber={pageNum}
                   width={pageWidth}
-                  renderTextLayer={false}
+                  renderTextLayer={true}
                   renderAnnotationLayer={false}
                 />
                 {renderAnnotations(pageNum)}

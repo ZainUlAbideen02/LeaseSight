@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useUser } from '@clerk/react';
 import { FileText, ListChecks } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -10,6 +11,33 @@ import { LeftPane } from '@/components/LeftPane';
 import { ChatOverlay } from '@/components/ChatOverlay';
 import { NetworkPanel } from '@/components/NetworkPanel';
 import { AuditResult, Annotation } from '@/lib/types';
+import { setPlan, addCredits } from '@/lib/userStore';
+import { toast } from 'sonner';
+
+function PaymentListener() {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const type = searchParams.get('type');
+
+    if (payment === 'success') {
+      if (type === 'starter') {
+        setPlan('starter');
+        toast.success('Starter Plan Activated! 25 Audits Available.');
+      } else if (type === 'credits') {
+        addCredits(10);
+        toast.success('10 Audit Credits Added!');
+      }
+      if (typeof window !== 'undefined') {
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+  }, [searchParams]);
+
+  return null;
+}
 
 const RightPane = dynamic(() => import('@/components/RightPane').then(mod => mod.RightPane), {
   ssr: false,
@@ -184,6 +212,10 @@ export default function AuditDashboard() {
           onMapQuery={handleMapQuery}
         />
       )}
+
+      <Suspense fallback={null}>
+        <PaymentListener />
+      </Suspense>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { SignInButton, UserButton, useAuth } from '@clerk/react';
-import { ArrowRight, Binary, Cpu, Database, Loader2, Network, X } from 'lucide-react';
+import { ArrowRight, Binary, Cpu, Database, Loader2, Search, X } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { LegalDrawer } from '@/components/LegalDrawer';
 import type { LegalPanel } from '@/content/legal';
@@ -13,25 +13,25 @@ type ModalName = 'about' | 'contact' | null;
 
 const offerCards = [
   {
-    icon: Network,
-    tag: 'Active Ingestion',
-    title: 'Asynchronous Compliance Pipelines',
+    icon: Cpu,
+    tag: 'FLEXIBLE COMPUTE',
+    title: 'Managed Cloud or Bring Your Own Key',
     copy:
-      'File parsing runs on decoupled background workers so the browser never blocks on long OCR or inference chains. Jobs enqueue server-side while your session stays responsive—eliminating proxy timeouts and generic "Failed to Fetch" errors during heavy audits.',
+      'Run contract audits using our high-speed managed Groq pipeline, or plug in your own Groq/OpenAI API keys for zero-fee, local-first processing with complete privacy control.',
+  },
+  {
+    icon: Search,
+    tag: 'PRECISION AUDITING',
+    title: 'Direct PDF Document Grounding',
+    copy:
+      'Instantly jump from risk flags to precise text locations in your PDF. Glowing amber bounding box highlights map every extracted obligation and clause directly to original source text.',
   },
   {
     icon: Database,
-    tag: 'Deterministic Validation',
-    title: 'Local Embedding Vector Space',
+    tag: 'AUTOMATED WORKFLOWS',
+    title: 'Obligation Tracking & Calendar Sync',
     copy:
-      'Clause chunks embed with all-mpnet-base-v2 (768-d) entirely on local threads. Cosine similarity and retrieval stay on your machine for zero marginal embedding cost, stronger privacy boundaries, and predictable latency without shipping full contracts to cloud vector stores.',
-  },
-  {
-    icon: Cpu,
-    tag: 'Structured Output',
-    title: 'Multi-Agent JSON Ingestion',
-    copy:
-      'Unstructured legal prose is parsed into schema-bound JSON against a 20-point validation matrix. Groq LPU-backed Llama-3.3-70B agents cross-check fields, reconcile conflicts, and return review-ready findings with quote-level evidence in seconds.',
+      'Automatically parse critical dates, lease renewal windows, penalty clauses, and payment obligations. Export findings to JSON or sync deadlines straight to your calendar.',
   },
 ];
 
@@ -41,18 +41,18 @@ function Modal({ name, onClose }: { name: ModalName; onClose: () => void }) {
   if (!name) return null;
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl border border-slate-300 bg-[#F9FAFB] p-6 shadow-2xl">
-        <div className="mb-5 flex items-start justify-between gap-6">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm animate-fade-in">
+      <div className="w-full max-w-xl border border-slate-300 bg-[#F9FAFB] p-6 shadow-2xl rounded-2xl">
+        <div className="mb-5 flex items-start justify-between gap-6 border-b border-slate-200 pb-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">LeaseSight</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[#1A1A1A]">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">LeaseSight Platform</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-[#1A1A1A]">
               {name === 'about' ? 'About Us' : 'Contact Us'}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="border border-slate-300 p-2 text-[#1A1A1A] transition hover:-translate-y-0.5 hover:bg-[#1A1A1A] hover:text-white"
+            className="border border-slate-300 p-2 text-[#1A1A1A] transition hover:bg-[#1A1A1A] hover:text-white rounded-lg"
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />
@@ -60,15 +60,34 @@ function Modal({ name, onClose }: { name: ModalName; onClose: () => void }) {
         </div>
 
         {name === 'about' ? (
-          <div className="space-y-4 text-sm leading-6 text-slate-600">
+          <div className="space-y-4 text-sm leading-relaxed text-slate-600 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <h3 className="text-base font-bold text-[#1A1A1A]">
+              Built for Modern Real Estate, Legal & Procurement Teams.
+            </h3>
             <p>
-              LeaseSight is a technical legal-auditing platform built for high-stakes commercial logistics,
-              industrial leases, and enterprise document operations.
+              LeaseSight was built to bridge the gap between heavy, unreadable commercial lease agreements and instant operational clarity. Traditional contract reviews take hours of tedious manual reading, exposing organizations to costly missed renewal deadlines and overlooked compliance risks.
             </p>
             <p>
-              The product combines document intelligence, vector retrieval, visual evidence grounding, and
-              risk scoring so teams can review critical clauses with confidence.
+              Powered by high-throughput Llama 3 models on Groq LPUs, Pinecone vector search, and hybrid extraction pipelines, LeaseSight audits 50+ page legal documents in seconds—giving teams quote-level evidence, risk scores, and direct document highlights with zero guesswork.
             </p>
+            
+            <div className="mt-4 pt-4 border-t border-slate-200">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Our Core Pillars</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                  <p className="text-xs font-bold text-[#1A1A1A] mb-1">⚡ Speed</p>
+                  <p className="text-[11px] text-slate-500 leading-snug">Sub-second clause parsing backed by Groq LPU inference acceleration.</p>
+                </div>
+                <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                  <p className="text-xs font-bold text-[#1A1A1A] mb-1">🎯 Accuracy</p>
+                  <p className="text-[11px] text-slate-500 leading-snug">Schema-validated extraction ensuring zero hallucinated terms.</p>
+                </div>
+                <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-sm">
+                  <p className="text-xs font-bold text-[#1A1A1A] mb-1">🔑 Flexibility</p>
+                  <p className="text-[11px] text-slate-500 leading-snug">Pay-as-you-go top-ups, $5/mo managed plans, or BYOK developer keys.</p>
+                </div>
+              </div>
+            </div>
           </div>
         ) : (
           <ContactForm onSuccess={onClose} />
@@ -80,13 +99,13 @@ function Modal({ name, onClose }: { name: ModalName; onClose: () => void }) {
 
 function ContactForm({ onSuccess, dark }: { onSuccess?: () => void; dark?: boolean }) {
   const field =
-    'w-full border px-3 py-3 text-sm outline-none transition ' +
+    'w-full border px-3 py-3 text-sm outline-none transition rounded-xl ' +
     (dark
       ? 'border-white/15 bg-white/5 text-white placeholder:text-slate-500 focus:border-white'
       : 'border-slate-300 bg-white text-[#1A1A1A] focus:border-[#1A1A1A]');
   const btn = dark
-    ? 'mt-1 w-full border border-white bg-white px-4 py-3 text-sm font-semibold text-[#1A1A1A] transition hover:-translate-y-0.5 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50'
-    : 'mt-2 bg-[#1A1A1A] px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50';
+    ? 'mt-1 w-full border border-white bg-white px-4 py-3 text-sm font-semibold text-[#1A1A1A] transition hover:bg-slate-200 rounded-xl disabled:cursor-not-allowed disabled:opacity-50'
+    : 'mt-2 bg-[#1A1A1A] px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 rounded-xl disabled:cursor-not-allowed disabled:opacity-50';
   const [email, setEmail] = useState('');
   const [industry, setIndustry] = useState('');
   const [companySize, setCompanySize] = useState('');
@@ -102,29 +121,44 @@ function ContactForm({ onSuccess, dark }: { onSuccess?: () => void; dark?: boole
 
     setSubmitting(true);
     try {
-      await fetch('/api/contact', {
+      const res = await fetch('https://api.web3forms.com/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), industry: industry.trim(), company_size: companySize, message: message.trim() }),
+        body: JSON.stringify({
+          access_key: '3ffc2c05-f580-4c78-bfa6-91e6d5de938b',
+          subject: '[LeaseSight Inquiry] New Enterprise Briefing Request',
+          email: email.trim(),
+          industry: industry.trim(),
+          companySize: companySize,
+          message: message.trim(),
+          from_name: 'LeaseSight Web Portal',
+        }),
       });
-      showSuccessToast('Thank you. A LeaseSight consultant will reach out to you within 24 hours');
-      setEmail('');
-      setIndustry('');
-      setCompanySize('');
-      setMessage('');
-      onSuccess?.();
+
+      const data = await res.json();
+      if (data.success) {
+        showSuccessToast('Inquiry Sent! The LeaseSight team will reach out to you shortly.');
+        setEmail('');
+        setIndustry('');
+        setCompanySize('');
+        setMessage('');
+        onSuccess?.();
+      } else {
+        throw new Error(data.message || 'Submission failed');
+      }
     } catch (err) {
-      showErrorToast(err, 'Submission failed');
+      showErrorToast(new Error('Submission failed. Please reach out directly to 241475@students.au.edu.pk.'), 'Submission Error');
     } finally {
-      setTimeout(() => setSubmitting(false), 2000);
+      setSubmitting(false);
     }
   };
 
   return (
     <form onSubmit={submit} className="grid gap-3">
-      <input value={email} onChange={e => setEmail(e.target.value)} className={field} placeholder="Work email" />
-      <input value={industry} onChange={e => setIndustry(e.target.value)} className={field} placeholder="Industry" />
+      <input name="email" value={email} onChange={e => setEmail(e.target.value)} className={field} placeholder="Work email" />
+      <input name="industry" value={industry} onChange={e => setIndustry(e.target.value)} className={field} placeholder="Industry" />
       <select
+        name="companySize"
         value={companySize}
         onChange={e => setCompanySize(e.target.value)}
         className={field + (dark ? ' text-slate-300' : ' text-slate-500')}
@@ -136,6 +170,7 @@ function ContactForm({ onSuccess, dark }: { onSuccess?: () => void; dark?: boole
         <option>1,000+</option>
       </select>
       <textarea
+        name="message"
         value={message}
         onChange={e => setMessage(e.target.value)}
         className={field + ' min-h-24 resize-y'}
@@ -144,7 +179,7 @@ function ContactForm({ onSuccess, dark }: { onSuccess?: () => void; dark?: boole
       <button disabled={submitting} type="submit" className={btn}>
         {submitting ? (
           <span className="inline-flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" /> Sending...
+            <Loader2 className="h-4 w-4 animate-spin" /> Sending Request...
           </span>
         ) : dark ? (
           'Request Briefing'
@@ -162,7 +197,7 @@ export default function LandingPage() {
   const [legalPanel, setLegalPanel] = useState<LegalPanel | null>(null);
 
   return (
-    <main className="min-h-screen bg-[#F9FAFB] text-[#1A1A1A]">
+    <main className="min-h-screen flex flex-col justify-between bg-[#F9FAFB] text-[#1A1A1A]">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-200/80 bg-[#F9FAFB]/82 backdrop-blur-xl">
         <nav className="enterprise-container flex h-[72px] items-center justify-between py-4">
           <BrandLogo />
@@ -175,11 +210,11 @@ export default function LandingPage() {
             {!userId && (
               <>
               <SignInButton mode="modal">
-                <button className="hidden border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1A1A1A] transition hover:-translate-y-0.5 hover:border-[#1A1A1A] sm:block">
+                <button className="hidden border border-slate-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1A1A1A] transition hover:-translate-y-0.5 hover:border-[#1A1A1A] sm:block rounded-lg">
                   Login
                 </button>
               </SignInButton>
-              <Link href="/dashboard/audit" className="bg-[#1A1A1A] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700">
+              <Link href="/dashboard/audit" className="bg-[#1A1A1A] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700 rounded-lg">
                 Get Started
               </Link>
               </>
@@ -187,7 +222,7 @@ export default function LandingPage() {
 
             {userId && (
               <>
-                <Link href="/dashboard/audit" className="bg-[#1A1A1A] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700">
+                <Link href="/dashboard/audit" className="bg-[#1A1A1A] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700 rounded-lg">
                   Dashboard
                 </Link>
                 <UserButton />
@@ -198,7 +233,7 @@ export default function LandingPage() {
       </header>
 
       <section className="enterprise-container flex min-h-[84vh] flex-col items-center justify-center pt-20 text-center">
-        <div className="mb-7 inline-flex items-center gap-2 border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+        <div className="mb-7 inline-flex items-center gap-2 border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-slate-500 rounded-full shadow-sm">
           <Binary className="h-4 w-4 text-[#1A1A1A]" />
           Industrial legal intelligence
         </div>
@@ -206,14 +241,14 @@ export default function LandingPage() {
           Intelligence in Every Clause.
         </h1>
         <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-500">
-          AI-Powered Lease Auditing for Industrial Excellence.
+          AI-Powered Lease Auditing for Commercial Real Estate & Enterprise Operations.
         </p>
         <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/dashboard/audit" className="group inline-flex items-center gap-3 bg-[#1A1A1A] px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700">
+          <Link href="/dashboard/audit" className="group inline-flex items-center gap-3 bg-[#1A1A1A] px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-white transition hover:-translate-y-0.5 hover:bg-slate-700 rounded-xl shadow-sm">
             Get Started
             <ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" />
           </Link>
-          <a href="#offer" className="border border-slate-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#1A1A1A] transition hover:-translate-y-0.5 hover:border-[#1A1A1A] hover:bg-white">
+          <a href="#offer" className="border border-slate-300 px-6 py-3 text-sm font-semibold uppercase tracking-[0.16em] text-[#1A1A1A] transition hover:-translate-y-0.5 hover:border-[#1A1A1A] hover:bg-white rounded-xl">
             What We Offer
           </a>
         </div>
@@ -231,9 +266,9 @@ export default function LandingPage() {
               return (
                 <article
                   key={card.title}
-                  className="group border border-slate-200 bg-[#F9FAFB] p-6 transition hover:border-[#1A1A1A]/30 hover:bg-white"
+                  className="group border border-slate-200 bg-[#F9FAFB] p-6 transition hover:border-[#1A1A1A]/30 hover:bg-white rounded-2xl shadow-sm"
                 >
-                  <span className="inline-block border border-slate-300 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <span className="inline-block border border-slate-300 bg-white px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 rounded-md">
                     {card.tag}
                   </span>
                   <Icon className="mt-6 mb-6 h-7 w-7 text-[#1A1A1A] transition group-hover:-translate-y-0.5" />
@@ -246,7 +281,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="bg-[#1A1A1A] text-white">
+      <footer className="w-full bg-[#1A1A1A] text-white mt-auto border-t border-white/10">
         <div className="enterprise-container grid gap-12 py-14 md:grid-cols-[1.15fr_1fr_0.75fr] md:items-start">
           <div className="min-w-0">
             <BrandLogo className="text-white [&_span:last-child]:text-white" />
@@ -255,7 +290,7 @@ export default function LandingPage() {
               industrial real estate, and document-heavy operating teams.
             </p>
           </div>
-          <div className="min-w-0 border border-white/10 bg-white/[0.03] p-5 md:p-6">
+          <div className="min-w-0 border border-white/10 bg-white/[0.03] p-5 md:p-6 rounded-2xl">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">Contact Us</p>
             <ContactForm dark />
           </div>

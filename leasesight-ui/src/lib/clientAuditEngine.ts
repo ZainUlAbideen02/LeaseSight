@@ -6,6 +6,7 @@
 
 import Groq from 'groq-sdk';
 import { getUserGroqKey } from './userKeyStore';
+import { getUserState, deductCredit } from './userStore';
 
 export interface FindingItem {
   label: string;
@@ -365,7 +366,18 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
  * or pure browser-native hybrid audit engine.
  */
 export async function runClientAudit(documentText: string, fileName: string = 'Contract.pdf'): Promise<AuditResult> {
-  const apiKey = getUserGroqKey() || process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
+  const userState = getUserState();
+  const customKey = userState.customApiKey;
+
+  // Credit check: if no custom key is set, check remaining credits and deduct 1 credit
+  if (!customKey || customKey.trim().length === 0) {
+    if (userState.remainingCredits <= 0) {
+      throw new Error('Zero credits remaining. Upgrade plan or bring your own API key to perform audits.');
+    }
+    deductCredit();
+  }
+
+  const apiKey = customKey || getUserGroqKey() || process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
 
   if (apiKey) {
     try {
