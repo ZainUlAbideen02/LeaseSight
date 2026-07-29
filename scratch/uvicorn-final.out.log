@@ -1,6 +1,0 @@
-INFO:     127.0.0.1:58394 - "GET /api/health HTTP/1.1" 200 OK
---- STARTING AUDIT: pipeline_upload_test.pdf ---
---- Running Embeddings on: CPU ---
-[EMBED] Loading local model 'all-mpnet-base-v2' (first use — downloading if needed)...
-[EMBED] Model loaded. Dimension: 768
-[AUDIT] Falling back after error: AI service is temporarily rate-limited. A conservative partial audit was generated from indexed document text.
