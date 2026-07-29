@@ -60,7 +60,7 @@ venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 
 # 4. Configure .env file in root directory
-# Add GROQ_API_KEY, PINECONE_API_KEY, AZURE_KEY, AZURE_ENDPOINT
+# Add GROQ_API_KEY, PINECONE_API_KEY
 
 # 5. Start FastAPI server
 uvicorn api.main:app --host 0.0.0.0 --port 8080 --reload

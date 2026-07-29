@@ -27,8 +27,7 @@ graph TD
     Client -->|Authentication| Clerk[Clerk Auth Provider]
     
     subgraph Optional Python Backend
-        API[FastAPI Server :8080] -->|Layout / OCR| Azure[Azure Document Intelligence]
-        API -->|Vector Search| Pinecone[Pinecone Vector DB]
+        API[FastAPI Server :8080] -->|Vector Search| Pinecone[Pinecone Vector DB]
     end
     
     Client -.->|Optional REST| API
@@ -47,7 +46,6 @@ LeaseSight/
 │   │   └── lib/             # Audit engine, BM25 scoring, PDF parser, Local document store
 │   └── package.json
 ├── api/                     # (Optional) FastAPI Python Backend Server
-├── app.py                   # (Optional) Streamlit Admin Testing UI
 ├── requirements.txt         # Python backend dependencies
 ├── README.md                # Main repository documentation
 └── README_SETUP.md          # Step-by-step local setup guide
@@ -73,8 +71,6 @@ NEXT_PUBLIC_API_URL=http://localhost:8080
 ```ini
 GROQ_API_KEY=gsk_your_groq_api_key
 PINECONE_API_KEY=pcsk_your_pinecone_api_key
-AZURE_ENDPOINT=https://your-resource.cognitiveservices.azure.com/
-AZURE_KEY=your_azure_document_intelligence_key
 ```
 
 ---

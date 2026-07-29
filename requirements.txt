@@ -19,9 +19,6 @@ groq>=1.0.0
 pinecone==5.4.2
 rank-bm25==0.2.2
 
-# Azure Document Intelligence (OCR)
-azure-ai-formrecognizer==3.3.0
-azure-core==1.34.0
 
 # Document & PDF Processing
 pypdf==5.4.0
