@@ -43,8 +43,20 @@ export default function AuditDashboard() {
   }, [user?.id]);
 
   useEffect(() => {
+    import('@/lib/localDocumentStore').then(({ getStoredDocumentNames }) => {
+      const localDocs = getStoredDocumentNames();
+      if (localDocs.length > 0) {
+        setDocuments(localDocs);
+        if (!selectedDoc) setSelectedDoc(localDocs[0]);
+      }
+    });
+
     import('@/lib/api').then(({ api }) => {
-      api.documents().then(d => setDocuments(d.documents ?? [])).catch(() => {});
+      api.documents().then(d => {
+        if (d.documents && d.documents.length > 0) {
+          setDocuments(prev => Array.from(new Set([...prev, ...d.documents])));
+        }
+      }).catch(() => {});
       api.health().catch(() => {});
     });
   }, []);

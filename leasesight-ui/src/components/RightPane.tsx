@@ -8,6 +8,8 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
+import { getLocalDocumentPdfUrl } from '@/lib/localDocumentStore';
+
 const PAGE_WIDTH_INCHES  = 8.5;
 const PAGE_HEIGHT_INCHES = 11.0;
 
@@ -27,7 +29,7 @@ export function RightPane({ selectedDoc, annotations, targetPage }: RightPanePro
   const [scale,           setScale]           = useState<number>(1.0);
 
   const pdfUrl = useMemo(
-    () => selectedDoc ? api.pdfUrl(selectedDoc) : null,
+    () => selectedDoc ? (getLocalDocumentPdfUrl(selectedDoc) || api.pdfUrl(selectedDoc)) : null,
     [selectedDoc]
   );
 

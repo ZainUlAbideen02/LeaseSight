@@ -41,7 +41,7 @@ export function FileUploadStatus({ status, error }: Props) {
         <div className="space-y-2 text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
           <div className={`flex items-center gap-2 ${step >= 1 ? 'opacity-100' : 'opacity-40'}`}>
             {step > 1 ? <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--accent-emerald)' }} /> : <div className="w-3.5 h-3.5 rounded-full border border-current" />}
-            1. Extracting text via Azure OCR...
+            1. Extracting text & coordinates via browser pdfjs-dist...
           </div>
           <div className={`flex items-center gap-2 ${step >= 2 ? 'opacity-100' : 'opacity-40'}`}>
             {step > 2 ? <CheckCircle className="w-3.5 h-3.5" style={{ color: 'var(--accent-emerald)' }} /> : <div className="w-3.5 h-3.5 rounded-full border border-current" />}
