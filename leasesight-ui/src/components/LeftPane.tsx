@@ -67,8 +67,10 @@ export function LeftPane({
     const localDoc = getLocalDocument(selectedDoc);
     if (localDoc) {
       setIsIndexing(false);
-      if (localDoc.auditResult && !auditResult) {
+      if (localDoc.auditResult) {
         onAuditComplete(localDoc.auditResult);
+      } else {
+        runAuditForDoc(localDoc.fileName, localDoc.fullText);
       }
     } else {
       api.checkIndex(selectedDoc)
@@ -163,30 +165,13 @@ export function LeftPane({
       const textToAudit = fullText || localDoc?.fullText || '';
 
       if (textToAudit && textToAudit.trim().length > 0) {
-        try {
-          result = await runClientAudit(textToAudit);
-        } catch (clientErr) {
-          // If Groq key not configured, fallback to api.audit or mock structured response
-          try {
-            result = await api.audit(fileName);
-          } catch (apiErr) {
-            result = {
-              lease_metadata: { title: fileName, lessor: 'Extracted via Browser Engine', lessee: 'Tenant' },
-              findings: [
-                { label: 'Document Loaded', value: `${localDoc?.pages.length || 1} Pages Processed`, evidence_quote: textToAudit.slice(0, 50), risk_level: 'Low', verified_grounded: true },
-                { label: 'PDF Text Extraction', value: 'Complete via pdfjs-dist', evidence_quote: textToAudit.slice(50, 100) || fileName, risk_level: 'Low', verified_grounded: true }
-              ],
-              obligations: [
-                { label: 'Term Window', date: 'Active', description: 'Extracted via local browser worker', evidence_quote: textToAudit.slice(0, 40) }
-              ],
-              summary_paragraph: `Document ${fileName} parsed successfully in browser memory using pdfjs-dist layout extractor.`,
-              risk_score: 1,
-              warnings: []
-            };
-          }
-        }
+        result = await runClientAudit(textToAudit, fileName);
       } else {
-        result = await api.audit(fileName);
+        try {
+          result = await api.audit(fileName);
+        } catch (apiErr) {
+          result = await runClientAudit(fileName, fileName);
+        }
       }
 
       setLocalAuditResult(fileName, result);

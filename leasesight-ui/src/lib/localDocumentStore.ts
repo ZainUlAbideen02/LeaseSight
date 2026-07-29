@@ -160,21 +160,25 @@ export function locateSnippetLocally(fileName: string, snippet: string): Annotat
   if (!doc || !snippet || snippet.trim().length === 0) return null;
 
   const cleanSnippet = snippet.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-  if (cleanSnippet.length < 4) return null;
+  if (cleanSnippet.length < 3) return null;
 
-  const PAGE_WIDTH_INCHES = 8.5;
-  const PAGE_HEIGHT_INCHES = 11.0;
+  const POINTS_PER_INCH = 72.0;
 
   for (const page of doc.pages) {
     for (const line of page.lines) {
       const cleanLine = line.text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-      if (cleanLine.includes(cleanSnippet.slice(0, 20)) || cleanSnippet.includes(cleanLine.slice(0, 20))) {
+      if (cleanLine.includes(cleanSnippet.slice(0, 18)) || cleanSnippet.includes(cleanLine.slice(0, 18))) {
+        const xInch = line.x > 0 ? line.x / POINTS_PER_INCH : 0.8;
+        const yInch = line.y > 0 ? line.y / POINTS_PER_INCH : 1.2;
+        const wInch = line.width > 0 ? Math.max(1.5, line.width / POINTS_PER_INCH) : 6.0;
+        const hInch = line.height > 0 ? Math.max(0.25, line.height / POINTS_PER_INCH) : 0.4;
+
         return {
           page: page.pageNumber,
-          x: Math.min(PAGE_WIDTH_INCHES - 1, Math.max(0.5, (line.x / 600) * PAGE_WIDTH_INCHES)),
-          y: Math.min(PAGE_HEIGHT_INCHES - 1, Math.max(0.5, (line.y / 800) * PAGE_HEIGHT_INCHES)),
-          width: Math.min(6, Math.max(1, (line.width / 600) * PAGE_WIDTH_INCHES)),
-          height: Math.min(2, Math.max(0.3, (line.height / 800) * PAGE_HEIGHT_INCHES)),
+          x: Math.min(7.5, Math.max(0.5, xInch)),
+          y: Math.min(10.0, Math.max(0.5, yInch)),
+          width: Math.min(7.0, wInch),
+          height: Math.min(2.0, hInch),
           color: 'orange',
           text: line.text,
         };
@@ -182,14 +186,32 @@ export function locateSnippetLocally(fileName: string, snippet: string): Annotat
     }
   }
 
-  // Fallback to first page default annotation
+  // Fallback to searching page fullText if single line didn't hit exact substring match
+  for (const page of doc.pages) {
+    const cleanFullText = page.fullText.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (cleanFullText.includes(cleanSnippet.slice(0, 18))) {
+      const firstLine = page.lines[0];
+      const yInch = firstLine && firstLine.y > 0 ? firstLine.y / POINTS_PER_INCH : 1.5;
+      return {
+        page: page.pageNumber,
+        x: 0.8,
+        y: Math.min(10.0, Math.max(0.8, yInch)),
+        width: 6.8,
+        height: 0.4,
+        color: 'orange',
+        text: snippet,
+      };
+    }
+  }
+
+  // Ultimate fallback to page 1 top section
   if (doc.pages.length > 0) {
     return {
       page: 1,
-      x: 1.0,
+      x: 0.8,
       y: 1.5,
-      width: 6.5,
-      height: 0.5,
+      width: 6.8,
+      height: 0.4,
       color: 'orange',
       text: snippet,
     };
