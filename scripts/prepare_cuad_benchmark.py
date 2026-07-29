@@ -1,103 +1,63 @@
 #!/usr/bin/env python3
 """
-scripts/prepare_cuad_benchmark.py
----------------------------------
-Dataset separation & cache purging script for CUAD 100-PDF benchmark evaluation.
-
-1. Locates CUAD contract PDFs in data/raw_pdfs/
-2. Uses random.seed(42) to select exactly 100 random PDFs
-3. Copies selected PDFs into data/cuad_benchmark_100/
-4. Deletes all pre-computed caches in data/json_maps/, data/cache/, data/temp/
+CUAD 100-PDF Benchmark Preparation & Cache Purge Script (prepare_cuad_benchmark.py)
+Randomly samples 100 PDF files from data/raw_pdfs with fixed seed=42 into data/cuad_benchmark_100,
+and purges all pre-computed JSON spatial maps and legacy caches.
 """
 
 import os
-import sys
-import glob
 import shutil
 import random
 from pathlib import Path
 
-# Force UTF-8 output on Windows standard output
-if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-RAW_PDFS_DIR = PROJECT_ROOT / "data" / "raw_pdfs"
-BENCHMARK_DIR = PROJECT_ROOT / "data" / "cuad_benchmark_100"
+SOURCE_DIR = PROJECT_ROOT / "data" / "raw_pdfs"
+DEST_DIR = PROJECT_ROOT / "data" / "cuad_benchmark_100"
+JSON_MAPS_DIR = PROJECT_ROOT / "data" / "json_maps"
+CACHE_DIR = PROJECT_ROOT / "data" / "cache"
 
-CACHE_DIRS = [
-    PROJECT_ROOT / "data" / "json_maps",
-    PROJECT_ROOT / "data" / "cache",
-    PROJECT_ROOT / "data" / "temp",
-]
+def prepare_cuad_benchmark(sample_size: int = 100, seed: int = 42):
+    print("=" * 65)
+    print(" STEP 1: CUAD 100-PDF BENCHMARK DATASET PREPARATION & CACHE PURGE")
+    print("=" * 65)
 
-EXCLUDE_PATTERNS = [
-    "audit_",
-    "cuda dataset research paper",
-    "copy of 200+",
-    "internship_agreement",
-]
+    if not SOURCE_DIR.exists():
+        raise FileNotFoundError(f"Source PDF directory not found at {SOURCE_DIR}")
 
-def purge_caches():
-    print("--- 1. Purging Caches & Legacy Indexes ---")
-    for cdir in CACHE_DIRS:
-        if cdir.exists():
-            for item in cdir.iterdir():
-                try:
-                    if item.is_file() or item.is_symlink():
-                        item.unlink()
-                    elif item.is_dir():
-                        shutil.rmtree(item)
-                    print(f"  [PURGE] Removed: {item.relative_to(PROJECT_ROOT)}")
-                except Exception as e:
-                    print(f"  [WARNING] Failed to remove {item}: {e}")
-        else:
-            cdir.mkdir(parents=True, exist_ok=True)
-            print(f"  [CREATE] Created clean directory: {cdir.relative_to(PROJECT_ROOT)}")
-    print("[OK] Cache purge complete. 0 pre-computed data remaining.\n")
+    # 1. Purge legacy caches and JSON maps
+    print("\n[PURGE] Clearing cached data and legacy indexes...")
+    for dir_to_purge in [JSON_MAPS_DIR, CACHE_DIR]:
+        if dir_to_purge.exists():
+            shutil.rmtree(dir_to_purge)
+            print(f"  [OK] Removed {dir_to_purge.relative_to(PROJECT_ROOT)}")
+        dir_to_purge.mkdir(parents=True, exist_ok=True)
 
-def prepare_dataset():
-    print("--- 2. Dataset Separation (100 CUAD PDFs, seed=42) ---")
-    if not RAW_PDFS_DIR.exists():
-        raise FileNotFoundError(f"Source PDF directory not found: {RAW_PDFS_DIR}")
+    # 2. Gather all source PDFs
+    all_pdfs = sorted([f for f in SOURCE_DIR.glob("*.pdf") if f.is_file()])
+    pdf_count = len(all_pdfs)
+    print(f"\n[DATASET] Discovered {pdf_count} PDF contracts in {SOURCE_DIR.relative_to(PROJECT_ROOT)}")
 
-    all_pdfs = sorted(
-        glob.glob(str(RAW_PDFS_DIR / "*.pdf")) + glob.glob(str(RAW_PDFS_DIR / "*.PDF"))
-    )
-    all_pdfs = list(dict.fromkeys(all_pdfs))  # deduplicate preserving order
+    if pdf_count < sample_size:
+        print(f"  [!] Warning: Found {pdf_count} PDFs, less than requested {sample_size}. Using all {pdf_count} PDFs.")
+        selected_pdfs = all_pdfs
+    else:
+        random.seed(seed)
+        selected_pdfs = random.sample(all_pdfs, sample_size)
 
-    # Filter out non-contract files
-    valid_pdfs = []
-    for p in all_pdfs:
-        fname = Path(p).name.lower()
-        if any(exc in fname for exc in EXCLUDE_PATTERNS):
-            continue
-        valid_pdfs.append(p)
+    # 3. Create destination directory and copy files
+    if DEST_DIR.exists():
+        shutil.rmtree(DEST_DIR)
+    DEST_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Total CUAD contract PDFs discovered: {len(valid_pdfs)}")
-    if len(valid_pdfs) < 100:
-        raise ValueError(f"Need at least 100 valid PDFs, found {len(valid_pdfs)}")
+    print(f"\n[SAMPLING] Copying {len(selected_pdfs)} randomly selected PDFs to {DEST_DIR.relative_to(PROJECT_ROOT)} (seed={seed})...")
+    copied = 0
+    for pdf_path in selected_pdfs:
+        dest_file = DEST_DIR / pdf_path.name
+        shutil.copy2(pdf_path, dest_file)
+        copied += 1
 
-    # Fixed random seed = 42 for exact reproducibility
-    random.seed(42)
-    selected_pdfs = random.sample(valid_pdfs, 100)
-    selected_pdfs.sort()
-
-    if BENCHMARK_DIR.exists():
-        shutil.rmtree(BENCHMARK_DIR)
-    BENCHMARK_DIR.mkdir(parents=True, exist_ok=True)
-
-    print(f"Copying 100 benchmark PDFs into: {BENCHMARK_DIR.relative_to(PROJECT_ROOT)}")
-    for src in selected_pdfs:
-        dest = BENCHMARK_DIR / Path(src).name
-        shutil.copy2(src, dest)
-
-    print(f"[OK] Successfully isolated 100 benchmark PDFs in {BENCHMARK_DIR.name}\n")
-    return selected_pdfs
+    print(f"  [OK] Successfully isolated {copied} benchmark PDF contracts in {DEST_DIR.relative_to(PROJECT_ROOT)}")
+    print("\nCache purge & dataset isolation complete. Ready for un-cached evaluation run.\n")
 
 if __name__ == "__main__":
-    purge_caches()
-    selected = prepare_dataset()
-    print("=== CUAD Benchmark Preparation Complete ===")
+    prepare_cuad_benchmark()
