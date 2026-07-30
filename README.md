@@ -29,8 +29,7 @@ graph TD
     Client -->|Authentication| Clerk[Clerk Auth Provider]
     
     subgraph Optional Python Backend
-        API[FastAPI Server :8080] -->|Layout / OCR| Azure[Azure Document Intelligence]
-        API -->|Vector Search| Pinecone[Pinecone Vector DB]
+        API[FastAPI Server :8080] -->|Vector Search| Pinecone[Pinecone Vector DB]
     end
     
     Client -.->|Optional REST| API

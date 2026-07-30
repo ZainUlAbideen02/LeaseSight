@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Settings, Cpu, Sparkles, User } from 'lucide-react';
+import { Search, Settings, Cpu, Sparkles, User, Zap } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 import { ApiKeyModal } from './ApiKeyModal';
 import { ContactSalesModal } from './ContactSalesModal';
 import { PricingModal } from './PricingModal';
 import { UserProfileModal } from './UserProfileModal';
 import { hasUserGroqKey } from '@/lib/userKeyStore';
+import { getUserState, UserState } from '@/lib/userStore';
 
 interface HeaderProps {
   isAuditing?: boolean;
@@ -24,10 +25,38 @@ export function Header({ documents, onSelectDoc }: HeaderProps) {
   const [isContactSalesModalOpen, setIsContactSalesModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [hasKey, setHasKey]                   = useState(false);
+  const [userState, setUserState]             = useState<UserState | null>(null);
 
+  // Load user state on mount and whenever the store updates
   useEffect(() => {
-    setHasKey(hasUserGroqKey());
+    function syncState() {
+      setHasKey(hasUserGroqKey());
+      setUserState(getUserState());
+    }
+    syncState();
+    window.addEventListener('user_store_updated', syncState);
+    return () => window.removeEventListener('user_store_updated', syncState);
   }, []);
+
+  // Derive credit badge label
+  function getCreditLabel(): { text: string; color: string } {
+    if (!userState) return { text: '— audits', color: 'text-zinc-400' };
+    if (userState.customApiKey && userState.customApiKey.length > 0) {
+      return { text: 'Unlimited (BYOK)', color: 'text-emerald-600' };
+    }
+    if (userState.planType === 'starter') {
+      return {
+        text: 'Starter Plan Active',
+        color: 'text-zinc-900',
+      };
+    }
+    const rem = userState.remainingCredits;
+    const total = userState.monthlyAllowance;
+    const color = rem === 0 ? 'text-red-600' : rem === 1 ? 'text-amber-600' : 'text-zinc-900';
+    return { text: `${rem} / ${total} Free Audits`, color };
+  }
+
+  const creditLabel = getCreditLabel();
 
   return (
     <header className="h-14 flex items-center justify-between px-4 border-b border-gray-200 bg-white shrink-0 relative z-40">
@@ -83,7 +112,21 @@ export function Header({ documents, onSelectDoc }: HeaderProps) {
 
       {/* Right: Active Utility Controls */}
       <div className="flex items-center gap-3">
-        
+
+        {/* Live Credit Counter Badge */}
+        <button
+          onClick={() => setIsPricingModalOpen(true)}
+          className={`hidden sm:flex items-center gap-1.5 text-[10px] font-bold tracking-wider px-2.5 py-1.5 rounded-lg border transition-all ${
+            userState?.remainingCredits === 0 && !userState?.customApiKey
+              ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+              : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+          }`}
+          title="Audit credits remaining — click to manage plan"
+        >
+          <Zap className="w-3 h-3" />
+          <span className={creditLabel.color}>{creditLabel.text}</span>
+        </button>
+
         {/* Pricing & Plans Button */}
         <button
           onClick={() => setIsPricingModalOpen(true)}
@@ -92,7 +135,7 @@ export function Header({ documents, onSelectDoc }: HeaderProps) {
         >
           <Sparkles className="w-3.5 h-3.5 text-zinc-900" />
           <span className="text-[10px] font-bold tracking-wider hidden sm:inline">
-            PRICING & PLANS
+            PRICING &amp; PLANS
           </span>
         </button>
 
@@ -130,7 +173,7 @@ export function Header({ documents, onSelectDoc }: HeaderProps) {
         </button>
       </div>
 
-      <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => { setIsKeyModalOpen(false); setHasKey(hasUserGroqKey()); }} />
+      <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => { setIsKeyModalOpen(false); setHasKey(hasUserGroqKey()); setUserState(getUserState()); }} />
       <PricingModal
         isOpen={isPricingModalOpen}
         onClose={() => setIsPricingModalOpen(false)}

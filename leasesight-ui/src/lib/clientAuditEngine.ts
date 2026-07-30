@@ -364,24 +364,34 @@ export function buildBrowserNativeHybridAudit(documentText: string, fileName: st
 /**
  * Executes legal compliance audit directly in the browser via Groq LLM API
  * or pure browser-native hybrid audit engine.
+ *
+ * Key resolution order:
+ *   1. User BYOK key (stored in localStorage) — no credit deducted
+ *   2. System managed key (NEXT_PUBLIC_GROQ_API_KEY) — 1 credit deducted
+ *   3. Pure browser-native BM25 hybrid engine — 1 credit deducted
  */
 export async function runClientAudit(documentText: string, fileName: string = 'Contract.pdf'): Promise<AuditResult> {
   const userState = getUserState();
-  const customKey = userState.customApiKey;
+  const customKey = userState.customApiKey?.trim() || '';
+  const isByok = customKey.length > 0;
 
-  // Credit check: if no custom key is set, check remaining credits and deduct 1 credit
-  if (!customKey || customKey.trim().length === 0) {
+  // Zero-credit guard — only applies when no BYOK key is set
+  if (!isByok) {
     if (userState.remainingCredits <= 0) {
-      throw new Error('Zero credits remaining. Upgrade plan or bring your own API key to perform audits.');
+      throw new Error(
+        'ZERO_CREDITS: You have used your 3 free extractions. Upgrade or bring your own Groq API key to continue.'
+      );
     }
+    // Deduct EXACTLY 1 credit ONCE at the start of the document audit session
     deductCredit();
   }
 
-  const apiKey = customKey || getUserGroqKey() || process.env.NEXT_PUBLIC_GROQ_API_KEY || '';
+  // Option A & B: Try client-side Groq SDK if key is available
+  const clientApiKey = isByok ? customKey : (getUserGroqKey() || process.env.NEXT_PUBLIC_GROQ_API_KEY || '');
 
-  if (apiKey) {
+  if (clientApiKey) {
     try {
-      const groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
+      const groq = new Groq({ apiKey: clientApiKey, dangerouslyAllowBrowser: true });
       const trimmedText = documentText.slice(0, 15000);
 
       const response = await groq.chat.completions.create({
@@ -396,12 +406,37 @@ export async function runClientAudit(documentText: string, fileName: string = 'C
 
       const content = response.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(content);
+
       return normalizeAuditResult(parsed, documentText);
-    } catch (err) {
-      console.warn('Groq API call failed. Using browser-native hybrid audit engine:', err);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.startsWith('ZERO_CREDITS')) throw err;
+      console.warn('Direct client-side Groq SDK call failed. Trying server /api/audit route:', err);
     }
   }
 
-  // Pure Browser-Native Hybrid Audit Engine
+  // Try Next.js Server API route (/api/audit) using server-side GROQ_API_KEY
+  try {
+    const apiRes = await fetch('/api/audit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        documentText,
+        fileName,
+        customApiKey: isByok ? customKey : undefined,
+      }),
+    });
+
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (data?.result) {
+        return normalizeAuditResult(data.result, documentText);
+      }
+    }
+  } catch (apiErr) {
+    console.warn('Server API route /api/audit fallback failed:', apiErr);
+  }
+
+  // Pure Browser-Native Hybrid Audit Engine fallback
   return buildBrowserNativeHybridAudit(documentText, fileName);
 }
+

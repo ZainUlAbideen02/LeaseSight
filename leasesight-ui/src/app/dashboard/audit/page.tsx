@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { useUser } from '@clerk/react';
+import { useUser } from '@clerk/nextjs';
 import { FileText, ListChecks } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { BackNavigation } from '@/components/BackNavigation';

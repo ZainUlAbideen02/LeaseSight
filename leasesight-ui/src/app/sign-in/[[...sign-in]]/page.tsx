@@ -1,9 +1,7 @@
-'use client';
-
 import { SignIn } from '@clerk/nextjs';
 import { BrandLogo } from '@/components/BrandLogo';
 
-export default function LoginPage() {
+export default function SignInPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#F9FAFB] px-4 py-12">
       <div className="grid w-full max-w-5xl overflow-hidden border border-slate-200 bg-white shadow-2xl md:grid-cols-[0.9fr_1.1fr]">
@@ -18,7 +16,7 @@ export default function LoginPage() {
           </div>
         </section>
         <section className="flex items-center justify-center p-6">
-          <SignIn routing="path" path="/login" signUpUrl="/login" fallbackRedirectUrl="/choose-package" />
+          <SignIn />
         </section>
       </div>
     </main>

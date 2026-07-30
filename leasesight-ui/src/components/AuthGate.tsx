@@ -1,10 +1,11 @@
 'use client';
 
-import { useAuth, SignInButton } from '@clerk/react';
+import { useAuth, useUser, SignInButton } from '@clerk/nextjs';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { setApiAuthContext } from '@/lib/api';
+import { initializeUserSession } from '@/lib/userStore';
 
 function hasSelectedPackage(): boolean {
   if (typeof document === 'undefined') return false;
@@ -14,6 +15,7 @@ function hasSelectedPackage(): boolean {
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/' || pathname === '/pricing') return true;
   if (pathname === '/login' || pathname.startsWith('/login/')) return true;
+  if (pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up')) return true;
   return false;
 }
 
@@ -23,11 +25,19 @@ function isProtectedPath(pathname: string): boolean {
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const { isLoaded, userId } = useAuth();
+  const { user } = useUser();
   const router = useRouter();
   const pathname = usePathname();
   const isPublic = isPublicPath(pathname);
   const isProtected = isProtectedPath(pathname);
   const isPackageRoute = pathname.startsWith('/choose-package');
+
+  // Seed 3 free credits for new users; retain balance for returning users
+  useEffect(() => {
+    if (!isLoaded || !userId) return;
+    const email = user?.primaryEmailAddress?.emailAddress;
+    initializeUserSession(userId, email);
+  }, [isLoaded, userId, user]);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -36,7 +46,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
     if (!userId) {
       if (isProtected || isPackageRoute) {
-        router.replace('/login');
+        router.replace('/sign-in');
       }
       return;
     }

@@ -11,6 +11,10 @@ import { CommitModal } from './CommitModal';
 import { ObligationTimeline } from './ObligationTimeline';
 import { AuditSkeleton } from './AuditSkeleton';
 import { FileUploadStatus } from './FileUploadStatus';
+import { PricingModal } from './PricingModal';
+import { ApiKeyModal } from './ApiKeyModal';
+import { ContactSalesModal } from './ContactSalesModal';
+import { toast } from 'sonner';
 
 import { parsePdfLayout } from '@/lib/pdfParser';
 import { chunkDocumentLayouts } from '@/lib/browserChunker';
@@ -50,6 +54,9 @@ export function LeftPane({
   const [pipelineStatus, setPipelineStatus] = useState<string | null>(null);
   const [pipelineError, setPipelineError] = useState<string | undefined>();
   const [auditStatus, setAuditStatus] = useState('Analyzing Clauses...');
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
+  const [isContactSalesModalOpen, setIsContactSalesModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const statusCycleRef = useRef<NodeJS.Timeout | null>(null);
   const analysisLoading = isAuditing || isAuditRunning;
@@ -166,7 +173,13 @@ export function LeftPane({
       onAuditComplete(result);
     } catch (e) {
       console.error('Audit failed:', e);
-      showErrorToast(e, 'Audit Failed');
+      // Zero-credit guard: show toast and open pricing modal
+      if (e instanceof Error && e.message.startsWith('ZERO_CREDITS')) {
+        toast.error('You have used your 3 free extractions. Upgrade or bring your own Groq API key to continue.');
+        setIsPricingModalOpen(true);
+      } else {
+        showErrorToast(e, 'Audit Failed');
+      }
     } finally {
       setIsAuditing(false);
       if (statusCycleRef.current) {
@@ -470,6 +483,16 @@ export function LeftPane({
           isCommitting={isCommitting}
         />
       )}
+
+      {/* Zero-Credit Guard Modals */}
+      <PricingModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        onOpenApiKeyModal={() => setIsKeyModalOpen(true)}
+        onOpenContactSalesModal={() => setIsContactSalesModalOpen(true)}
+      />
+      <ApiKeyModal isOpen={isKeyModalOpen} onClose={() => setIsKeyModalOpen(false)} />
+      <ContactSalesModal isOpen={isContactSalesModalOpen} onClose={() => setIsContactSalesModalOpen(false)} />
     </div>
   );
 }

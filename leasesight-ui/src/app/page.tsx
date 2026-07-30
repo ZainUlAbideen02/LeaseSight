@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { SignInButton, UserButton, useAuth } from '@clerk/react';
+import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import { ArrowRight, Binary, Cpu, Database, Loader2, Search, X } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { LegalDrawer } from '@/components/LegalDrawer';
